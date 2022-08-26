@@ -225,7 +225,7 @@ describe("TokenVesting", function () {
         await tokenVesting.computeVestingScheduleIdForAddressAndIndex(
           beneficiary.address,
           0
-        );
+      );
 
       // set time to half the vesting period
       const halfTime = baseTime + duration / 2;
@@ -249,6 +249,7 @@ describe("TokenVesting", function () {
           )
         ).toString()
       ).to.equal(expectedVestingScheduleId);
+
       expect(
         (
           await tokenVesting.computeNextVestingScheduleIdForHolder(

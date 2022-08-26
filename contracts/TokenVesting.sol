@@ -61,7 +61,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     */
     modifier onlyIfVestingScheduleNotRevoked(bytes32 vestingScheduleId) {
         require(vestingSchedules[vestingScheduleId].initialized == true);
-        require(vestingSchedules[vestingScheduleId].revoked == false);
+        require(vestingSchedules[vestingScheduleId].revoked == false, "vesting schedule revoked!");
         _;
     }
 
@@ -314,7 +314,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         public
         pure
         returns(bytes32){
-        return keccak256(abi.encodePacked(holder, index));
+        return keccak256(abi.encodePacked(holder,index));
     }
 
     /**
