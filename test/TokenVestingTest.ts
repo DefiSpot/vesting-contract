@@ -14,6 +14,8 @@ async function stakingRewardsFixture() {
         const TokenVesting = await ethers.getContractFactory("MockTokenVesting");
         const tokenVesting = await TokenVesting.deploy(spotToken.address);
 
+        await spotToken.transfer(tokenVesting.address, 1000);
+
         return { spotToken, tokenVesting, owner, beneficiaryOne, beneficiaryTwo}
 }
 
@@ -21,14 +23,16 @@ async function advanceTimeInSeconds(days: number) {
         await ethers.provider.send('evm_increaseTime', [days]);
 }
 
-describe("Staking Rewards Contract", () => { 
-  describe("Staking Rewards Functionality", () => {
+describe("Vesting Contract Testing", () => { 
+  describe("Vesting contract functionality", () => {
 
     it("Should assign the total supply of tokens to the owner", async function () {
-      const {owner, spotToken} = await loadFixture(stakingRewardsFixture);
+      const {owner, spotToken, tokenVesting} = await loadFixture(stakingRewardsFixture);
 
       const ownerBalance = await spotToken.balanceOf(owner.address);
-      expect(await spotToken.totalSupply()).to.equal(ownerBalance);
+      const contractBalance = await spotToken.balanceOf(tokenVesting.address);
+      
+      expect(await spotToken.totalSupply()).to.equal(ownerBalance.add(contractBalance));
     });
 
     it("should get the same token adddress", async () => {
@@ -42,23 +46,21 @@ describe("Staking Rewards Contract", () => {
       const {owner, spotToken, tokenVesting} = await loadFixture(stakingRewardsFixture);
 
       const initialBalance = await spotToken.balanceOf(tokenVesting.address);
-      expect(initialBalance).to.equal(0);
+      expect(initialBalance).to.equal(1000);
 
       await expect(spotToken.transfer(tokenVesting.address, 1000))
       .to.emit(spotToken, "Transfer")
       .withArgs(owner.address, tokenVesting.address, 1000);
 
       const newBalance = await spotToken.balanceOf(tokenVesting.address);
-      expect(newBalance).to.equal(1000);
+      expect(newBalance).to.equal(2000);
 
       const withdrawableAmount = await tokenVesting.getWithdrawableAmount();
-      expect(withdrawableAmount).to.equal(1000);
+      expect(withdrawableAmount).to.equal(2000);
     });
 
     it("should create a vesting schedule", async () => {
-      const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
-
-      await spotToken.transfer(tokenVesting.address, 1000);
+      const {tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
 
       const baseTime = 1622551248;
       const beneficiary = beneficiaryOne;
@@ -120,9 +122,7 @@ describe("Staking Rewards Contract", () => {
     });
 
     it("should revoke a vesting schedule", async () => {
-      const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
-
-      await spotToken.transfer(tokenVesting.address, 1000);
+      const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
 
       const baseTime = 1622551248;
       const beneficiary = beneficiaryOne;
@@ -171,12 +171,13 @@ describe("Staking Rewards Contract", () => {
 
       await expect(tokenVesting.computeReleasableAmount(vestingScheduleId)
         ).to.be.revertedWith("vesting schedule revoked!");
+
+      const balance = await spotToken.balanceOf(beneficiary.address);
+      expect(balance).to.equal(50);
     });
 
     it("should create more than one vesting schedule by beneficiary", async () => {
-      const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
-
-      await spotToken.transfer(tokenVesting.address, 1000);
+      const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
 
       const baseTime = 1622551248;
       const beneficiary = beneficiaryOne;
@@ -225,8 +226,6 @@ describe("Staking Rewards Contract", () => {
     it("should be able to withdraw", async () => {
       const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
 
-      await spotToken.transfer(tokenVesting.address, 1000);
-
       const baseTime = 1622551248;
       const beneficiary = beneficiaryOne;
       const startTime = baseTime;
@@ -253,9 +252,7 @@ describe("Staking Rewards Contract", () => {
     });
 
     it("should be able to release vesting tokens by the beneficiary", async () => {
-      const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
-
-      await spotToken.transfer(tokenVesting.address, 1000);
+      const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
 
       const baseTime = 1622551248;
       const beneficiary = beneficiaryOne;
@@ -315,6 +312,141 @@ describe("Staking Rewards Contract", () => {
       expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
     });
 
+    it("should consider the cliff period", async () => {
+      const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
+
+      const baseTime = 1622551248;
+      const beneficiary = beneficiaryOne;
+      const startTime = baseTime;
+      const cliff = 300;
+      const slicePeriodSeconds = 100;
+      const revokable = true;
+      
+      // create new vesting schedule
+      await tokenVesting.createVestingSchedule(
+        beneficiary.address,
+        startTime,
+        cliff,
+        500,
+        slicePeriodSeconds,
+        revokable,
+        1000
+      );
+
+      expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
+
+      const initialBalance = await spotToken.balanceOf(beneficiaryOne.address);
+
+      await tokenVesting.setCurrentTime(startTime + slicePeriodSeconds * 3);
+
+      const vestingScheduleId = await tokenVesting.computeVestingScheduleIdForAddressAndIndex(beneficiary.address,0);
+
+      expect(
+        await tokenVesting.computeReleasableAmount(vestingScheduleId)
+      ).to.be.equal(600);
+
+      await tokenVesting.connect(beneficiaryOne).release(vestingScheduleId, 600);
+      let endBalance = await spotToken.balanceOf(beneficiary.address);
+      
+      expect(endBalance).to.equal(initialBalance.add(600));
+      expect(
+        await tokenVesting.computeReleasableAmount(vestingScheduleId)
+      ).to.be.equal(0);
+
+      expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
+    });
+
+    it("should release a partial amount", async () => {
+      const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
+
+      const baseTime = 1622551248;
+      const beneficiary = beneficiaryOne;
+      const startTime = baseTime;
+      const cliff = 300;
+      const slicePeriodSeconds = 100;
+      const revokable = true;
+      
+      // create new vesting schedule
+      await tokenVesting.createVestingSchedule(
+        beneficiary.address,
+        startTime,
+        cliff,
+        500,
+        slicePeriodSeconds,
+        revokable,
+        1000
+      );
+
+      expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
+
+      const initialBalance = await spotToken.balanceOf(beneficiaryOne.address);
+
+      await tokenVesting.setCurrentTime(startTime + slicePeriodSeconds * 3);
+
+      const vestingScheduleId = await tokenVesting.computeVestingScheduleIdForAddressAndIndex(beneficiary.address,0);
+
+      expect(
+        await tokenVesting.computeReleasableAmount(vestingScheduleId)
+      ).to.be.equal(600);
+
+      await tokenVesting.connect(beneficiaryOne).release(vestingScheduleId, 200);
+
+      let endBalance = await spotToken.balanceOf(beneficiary.address);
+      
+      expect(endBalance).to.equal(initialBalance.add(200));
+
+      expect(
+        await tokenVesting.computeReleasableAmount(vestingScheduleId)
+      ).to.be.equal(400);
+
+      expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
+    });
+
+    /*
+      const baseTime = 1622551248;
+      const beneficiary = beneficiaryOne;
+      const startTime = baseTime;
+      const cliff = 0;
+      const duration = 1000;
+      const slicePeriodSeconds = 1;
+      const revokable = true;
+      const amount = 100;
+
+        // create new vesting schedule
+      await tokenVesting.createVestingSchedule(
+        beneficiary.address,
+        startTime,
+        cliff,
+        duration,
+        slicePeriodSeconds,
+        revokable,
+        amount
+      );
+    */
+    it("should release the exact amount of tokens", async () => {
+        const {tokenVesting, spotToken, beneficiaryOne, beneficiaryTwo} = await loadFixture(stakingRewardsFixture);
+
+        const time = Date.now();
+        const duration = 1000
+
+        await tokenVesting.createVestingSchedule(
+              beneficiaryOne.address,
+              time,
+              5, 1000, 10, false, 1000);
+
+        await tokenVesting.setCurrentTime(time + duration * 1000);
+
+        const vestingScheduleId = await tokenVesting.computeVestingScheduleIdForAddressAndIndex(beneficiaryOne.address,0);
+
+        await tokenVesting.connect(beneficiaryOne).release(vestingScheduleId, 1000);
+
+        expect(await tokenVesting.getWithdrawableAmount()).to.equal(0);
+
+        const newBalance = await spotToken.balanceOf(beneficiaryOne.address);
+        expect(newBalance).to.equal(1000);
+        
+    });
+
     it("should compute vesting schedule index", async () => {
         const {spotToken, tokenVesting, owner, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
         const expectedVestingScheduleId =
@@ -330,35 +462,40 @@ describe("Staking Rewards Contract", () => {
                 await tokenVesting.computeNextVestingScheduleIdForHolder(beneficiaryOne.address)
         ).to.eql(scheduleID);
     });
+  });
 
-
-     it("Should check input parameters for createVestingSchedule method", async function () {
+  describe("Verify parameters", () => { 
+    it("should check input parameters for createVestingSchedule method", async function () {
         const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
         
-        await spotToken.transfer(tokenVesting.address, 1000);
         const time = Date.now();
         await expect(
                 tokenVesting.createVestingSchedule(
                 beneficiaryOne.address,
                 time,
                 0, 0, 1, false, 1)
-        ).to.be.revertedWith("TokenVesting: duration must be > 0");
+        ).to.be.revertedWith("duration must be > 0");
 
         await expect(
                 tokenVesting.createVestingSchedule(
                 beneficiaryOne.address,
                 time,
                 0, 1, 0, false, 1)
-        ).to.be.revertedWith("TokenVesting: slicePeriodSeconds must be >= 1");
+        ).to.be.revertedWith("slicePeriodSeconds must be >= 1");
       
         await expect(
                 tokenVesting.createVestingSchedule(
                 beneficiaryOne.address,
                 time,
                 0, 1, 1, false, 0)
-        ).to.be.revertedWith("TokenVesting: amount must be > 0");
+        ).to.be.revertedWith("amount must be > 0");
 
+    });
 
+    it("should check withdrawable funds available", async () => {
+        const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
+
+        const time = Date.now();
         await tokenVesting.createVestingSchedule(
               beneficiaryOne.address,
               time,
@@ -366,8 +503,44 @@ describe("Staking Rewards Contract", () => {
 
         await expect(
                 tokenVesting.withdraw(1)
-        ).to.be.revertedWith("TokenVesting: not enough withdrawable funds");
+        ).to.be.revertedWith("not enough withdrawable funds!");
+    });
+
+    it("should not be able to revoke schedule", async () => {
+        const {spotToken, tokenVesting, beneficiaryOne} = await loadFixture(stakingRewardsFixture);
+
+        const time = Date.now();
+        await tokenVesting.createVestingSchedule(
+              beneficiaryOne.address,
+              time,
+              0, 1, 1, false, 1000);
+        const vestingScheduleId = await tokenVesting.computeVestingScheduleIdForAddressAndIndex(beneficiaryOne.address,0);
+
+        await expect(
+                tokenVesting.revoke(vestingScheduleId)
+        ).to.be.revertedWith("vesting is not revocable!");
+    });
+
+    it("should test the release requirements", async () => {
+        const {tokenVesting, beneficiaryOne, beneficiaryTwo} = await loadFixture(stakingRewardsFixture);
+
+        const time = Date.now();
+
+        await tokenVesting.createVestingSchedule(
+              beneficiaryOne.address,
+              time,
+              0, 100, 10, false, 1000);
+        const vestingScheduleId = await tokenVesting.computeVestingScheduleIdForAddressAndIndex(beneficiaryOne.address,0);
+        await tokenVesting.setCurrentTime(time + 10);
         
+        await expect(
+                tokenVesting.connect(beneficiaryTwo).release(vestingScheduleId, 1)
+        ).to.be.revertedWith("only beneficiary and owner!");
+
+        await expect(
+                tokenVesting.release(vestingScheduleId, 101)
+        ).to.be.revertedWith("cannot release tokens!");
+
     });
   });
 });
