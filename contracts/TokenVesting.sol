@@ -1,20 +1,20 @@
-// contracts/TokenVesting.sol
-// SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.15;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.16;
 
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    using SafeMath for uint256;
-    using SafeERC20 for IERC20;
+    bytes32 public constant merkleRoot = 0x9ccffeeb50fd03c3c61a3d9720696f906c137f7a7f010902e9883e4727c532a6;
+    mapping(address => bool) public whitelistClaimed;
+    
     struct VestingSchedule{
         bool initialized;
         // beneficiary of tokens after they are released
@@ -45,6 +45,9 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     uint256 private vestingSchedulesTotalAmount;
     mapping(address => uint256) private holdersVestingCount;
 
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+
     event Released(uint256 amount);
     event Revoked();
 
@@ -72,6 +75,18 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     constructor(address token_) {
         require(token_ != address(0x0), "zero address not allowed!");
         _token = IERC20(token_);
+    }
+
+    // Verify whitelist 
+    function whitelistClaim(bytes32[] calldata _merkleProof) public returns (bool){
+        require(!whitelistClaimed[msg.sender], "Address already claimed!");
+        whitelistClaimed[msg.sender] = true;
+
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "invalid proof");
+        
+        // createVestingSchedule(....)
+        return true;
     }
 
     /**
