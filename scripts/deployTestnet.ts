@@ -3,24 +3,22 @@ import { BigNumber} from "ethers";
 const hre = require("hardhat");
 const path = require("path");
 
+// 0xc371718C7b44aD8168887f3Ce97aDB765977dfea Rinkeby Testnet
+
 async function main() {
 
-  const Token = await ethers.getContractFactory("Token");
-  const token = await Token.deploy("Token Test", "TKN",  1 * 1e6);
-  await token.deployed();
-
   const TokenVesting = await ethers.getContractFactory("TokenVesting");
-  const tokenVesting = await TokenVesting.deploy(token.address);
+  const spotToken = "0xF493BcA6BA0c0088eD1D8257670055DF47878084";
+  const tokenVesting = await TokenVesting.deploy(spotToken);
   await tokenVesting.deployed();
 
-  console.log(token.address, " Token address");
   console.log(tokenVesting.address, " Token Vesting address");
 
-  saveFrontendFiles(token);
+  saveFrontendFiles(TokenVesting);
 
 }
 
-function saveFrontendFiles(token:any) {
+function saveFrontendFiles(tokenVesting:any) {
   const fs = require("fs");
   const contractsDir = path.join(__dirname, "..", "dapp", "src", "contracts");
 
@@ -30,14 +28,14 @@ function saveFrontendFiles(token:any) {
 
   fs.writeFileSync(
     path.join(contractsDir, "contract-address.json"),
-    JSON.stringify({ Token: token.address }, undefined, 2)
+    JSON.stringify({ Token: tokenVesting.address }, undefined, 2)
   );
 
-  const TokenArtifact = hre.artifacts.readArtifactSync("Token");
+  const TokenVestingArtifact = hre.artifacts.readArtifactSync("TokenVesting");
 
   fs.writeFileSync(
-    path.join(contractsDir, "Token.json"),
-    JSON.stringify(TokenArtifact, null, 2)
+    path.join(contractsDir, "TokenVesting.json"),
+    JSON.stringify(TokenVestingArtifact, null, 2)
   );
 }
 
