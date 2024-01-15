@@ -15,11 +15,10 @@ import "hardhat/console.sol";
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    bytes32 public constant merkleRoot = 0x86af0dc17e4ea02d8d34c491352bec3ed4386d12aabfbf12ce16172be1922841;
+    bytes32 public constant MERKLE_ROOT = 0x6cb6c2a251c778f02a6f3babcba558d7918605bb98228cc519411ed1be219218;
     mapping(address => bool) public whitelistClaimed;
     
     struct VestingSchedule{
-        bool initialized;
         // beneficiary of tokens after they are released
         address  beneficiary;
         // cliff period in seconds
@@ -28,25 +27,29 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         uint256  start;
         // duration of the vesting period in seconds
         uint256  duration;
-        // duration of a slice period for the vesting in seconds
+        // duration of a slice period for the vesting in seconds --> constant value
         uint256 slicePeriodSeconds;
-        // whether or not the vesting is revocable
-        bool  revocable;
         // total amount of tokens to be released at the end of the vesting
         uint256 amountTotal;
         // amount of tokens released
         uint256  released;
+        // wheter or not the vesting schedule has been created
+        bool initialized;
+        // whether or not the vesting is revocable
+        bool  revocable;
         // whether or not the vesting has been revoked
         bool revoked;
-    }
+    } 
 
     // address of the ERC20 token
     IERC20 immutable private _token;
 
-    bytes32[] private vestingSchedulesIds;
-    mapping(bytes32 => VestingSchedule) private vestingSchedules;
     uint256 private vestingSchedulesTotalAmount;
+
+    mapping(bytes32 => VestingSchedule) private vestingSchedules;
     mapping(address => uint256) private holdersVestingCount;
+
+    bytes32[] private vestingSchedulesIds;
 
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -80,16 +83,34 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         _token = IERC20(token_);
     }
 
-    function whitelistClaim(bytes32[] calldata _merkleProof, uint256 _amount) public returns (bool){
+    function whitelistClaim(
+            bytes32[] calldata _merkleProof, 
+            uint256 _amount, 
+            uint256 _cliff, 
+            uint256 _duration,
+            uint256 _slicePeriodSeconds,
+            bool _revocable
+        )
+        external
+        returns (bool status)
+    {
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
 
-        bytes32 leaf = keccak256(abi.encode(msg.sender,_amount));
+        bytes32 leaf = keccak256(abi.encode(msg.sender,_amount,_cliff,_duration));
+       
+        require(MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf), "invalid proof");
         
-        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "invalid proof");
-        
-        // createVestingSchedule(....)
-        return true;
+        status = _createVestingSchedule(
+            msg.sender,             // Beneficiary
+            getCurrentTime(),       // Vesting schedule start
+            _cliff,                 // Cliff period
+            _duration,              // Total duration
+            _slicePeriodSeconds,    // Slice period in secodns: 1 day
+            _revocable,             // Vesting schedule can be revocable
+            _amount                 // Total amount to distribute
+        );
+        require(status, "Scheduled failed!");
     }
 
     /**
@@ -97,9 +118,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @return the number of vesting schedules
     */
     function getVestingSchedulesCountByBeneficiary(address _beneficiary)
-    external
-    view
-    returns(uint256){
+        external
+        view
+        returns(uint256)
+    {
         return holdersVestingCount[_beneficiary];
     }
 
@@ -108,9 +130,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @return the vesting id
     */
     function getVestingIdAtIndex(uint256 index)
-    external
-    view
-    returns(bytes32){
+        external
+        view
+        returns(bytes32)
+    {
         require(index < getVestingSchedulesCount(), "index out of bounds!");
         return vestingSchedulesIds[index];
     }
@@ -120,9 +143,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @return the vesting schedule structure information
     */
     function getVestingScheduleByAddressAndIndex(address holder, uint256 index)
-    external
-    view
-    returns(VestingSchedule memory){
+        external
+        view
+        returns(VestingSchedule memory)
+    {
         return getVestingSchedule(computeVestingScheduleIdForAddressAndIndex(holder, index));
     }
 
@@ -132,9 +156,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @return the total amount of vesting schedules
     */
     function getVestingSchedulesTotalAmount()
-    external
-    view
-    returns(uint256){
+        external
+        view
+        returns(uint256)
+    {
         return vestingSchedulesTotalAmount;
     }
 
@@ -142,9 +167,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @dev Returns the address of the ERC20 token managed by the vesting contract.
     */
     function getToken()
-    external
-    view
-    returns(address){
+        external
+        view
+        returns(address)
+    {
         return address(_token);
     }
 
@@ -158,7 +184,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @param _revocable whether the vesting is revocable or not
     * @param _amount total amount of tokens to be released at the end of the vesting
     */
-    function createVestingSchedule(
+    function _createVestingSchedule(
         address _beneficiary,
         uint256 _start,
         uint256 _cliff,
@@ -167,26 +193,29 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         bool _revocable,
         uint256 _amount
     )
-        external
-        onlyOwner{
+        private
+        returns (bool)
+    {
         require(
             this.getWithdrawableAmount() >= _amount, "not enough funds!"
         );
+
         require(_duration > 0, "duration must be > 0");
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
         bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(_beneficiary);
         uint256 cliff = _start.add(_cliff);
+
         vestingSchedules[vestingScheduleId] = VestingSchedule(
-            true,
             _beneficiary,
             cliff,
             _start,
             _duration,
             _slicePeriodSeconds,
-            _revocable,
             _amount,
             0,
+            true,
+            _revocable,
             false
         );
         
@@ -194,6 +223,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         vestingSchedulesIds.push(vestingScheduleId);
         uint256 currentVestingCount = holdersVestingCount[_beneficiary];
         holdersVestingCount[_beneficiary] = currentVestingCount.add(1);
+
+        return true;
     }
 
     /**
@@ -203,7 +234,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     function revoke(bytes32 vestingScheduleId)
         external
         onlyOwner
-        onlyIfVestingScheduleNotRevoked(vestingScheduleId){
+        onlyIfVestingScheduleNotRevoked(vestingScheduleId)
+    {
         VestingSchedule storage vestingSchedule = vestingSchedules[vestingScheduleId];
         require(vestingSchedule.revocable, "vesting is not revocable!");
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
@@ -222,7 +254,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     function withdraw(uint256 amount)
         external
         nonReentrant
-        onlyOwner{
+        onlyOwner
+    {
         require(this.getWithdrawableAmount() >= amount, "not enough withdrawable funds!");
         _token.safeTransfer(owner(), amount);
     }
