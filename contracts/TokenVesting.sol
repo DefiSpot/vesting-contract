@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
+import "hardhat/console.sol";
 
 /**
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    bytes32 public constant merkleRoot = 0x9ccffeeb50fd03c3c61a3d9720696f906c137f7a7f010902e9883e4727c532a6;
+    bytes32 public constant merkleRoot = 0x86af0dc17e4ea02d8d34c491352bec3ed4386d12aabfbf12ce16172be1922841;
     mapping(address => bool) public whitelistClaimed;
     
     struct VestingSchedule{
@@ -77,12 +80,12 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         _token = IERC20(token_);
     }
 
-    // Verify whitelist 
-    function whitelistClaim(bytes32[] calldata _merkleProof) public returns (bool){
+    function whitelistClaim(bytes32[] calldata _merkleProof, uint256 _amount) public returns (bool){
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
 
-        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        bytes32 leaf = keccak256(abi.encode(msg.sender,_amount));
+        
         require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "invalid proof");
         
         // createVestingSchedule(....)
