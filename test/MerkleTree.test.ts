@@ -4,8 +4,6 @@ const { time, loadFixture } = require("@nomicfoundation/hardhat-network-helpers"
 
 import { MerkleTree } from 'merkletreejs'
 
-const initialSupply = ethers.utils.parseEther("1000000");
-
 const ZERO = 0;
 const SECONDS = 60;
 const MINUTES = 60 * SECONDS;
@@ -25,6 +23,8 @@ const ETHER_200 = ethers.utils.parseEther("200");
 const ETHER_500 = ethers.utils.parseEther("500");
 const ETHER_1000 = ethers.utils.parseEther("1000");
 
+const initialSupply = ETHER_100;
+
 // [investor account, amount, period (in secodns), cliff (in second)]
 const whitelistAddresses = [
     ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS],
@@ -37,32 +37,30 @@ const whitelistAddresses = [
     ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH],
     ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH]
 ]
+const abi = ethers.utils.defaultAbiCoder;
 
 async function deployContracts() {
     
     const [owner, investor, notInvestor] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory("Token");
+    const Token = await ethers.getContractFactory("DefiSpotToken");
     const token = await Token.deploy("Spot Token", "SPOT", initialSupply);
 
     const Vesting = await ethers.getContractFactory("TokenVesting");
     const vesting = await Vesting.deploy(token.address);
 
-    await token.transfer(vesting.address, initialSupply);
+    await expect(token.grantMinterRole(vesting.address)).not.to.be.reverted;
 
-    const abi = ethers.utils.defaultAbiCoder;
-      
     const leafNodes = whitelistAddresses.map(addr => {
         let params = abi.encode(
           ["address","uint256","uint256","uint256"],
-          [addr[0].toString(),addr[1],addr[2],addr[3]]); 
+          [addr[0].toString(),addr[1],addr[2],addr[3]]);
 
         return ethers.utils.keccak256(params);            
       }
     );
 
     const merkleTree = new MerkleTree(leafNodes, ethers.utils.keccak256, {sortPairs: true});
-    //console.log(merkleTree.toString());
-
+    
     return { token, vesting, leafNodes, merkleTree, abi, owner, investor, notInvestor};
 }
 
@@ -89,6 +87,24 @@ describe("Vesting Contract Testing", () => {
       expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
     });
 
+    it("Should validate that the correct amount has been minted", async () => {
+      const {vesting, token, leafNodes, merkleTree, abi, owner, investor, notInvestor} = await loadFixture(deployContracts)
+      
+      const params = abi.encode(
+            ["address","uint256","uint256","uint256"], // encode as address array
+            [investor.address,ETHER_100,MONTH,THREE_MONTHS]);
+      
+      const hexProof = merkleTree.getHexProof(
+          ethers.utils.keccak256(params)
+      );
+      
+      await vesting.connect(investor).whitelistClaim(
+          hexProof,ETHER_100, MONTH,THREE_MONTHS, DAY, true
+      );
+
+      expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_100);
+    });
+    
     it("Should prevent incorrect user whitelist claim", async () => {
       const {vesting,merkleTree, abi, owner, investor, notInvestor} = await loadFixture(deployContracts)
       
@@ -185,52 +201,69 @@ describe("Vesting Contract Testing", () => {
     });
     
     it("Should allow multiple investors to claim their tokens", async () => {
-      const {vesting, merkleTree, abi, investor} = await loadFixture(deployContracts)
-      const [owner, investor0, investor1, investor2, investor3] = await ethers.getSigners();
+        const {vesting, token, merkleTree, abi} = await loadFixture(deployContracts)
+        const [owner, investor0, investor1, investor2, investor3, investor4] = await ethers.getSigners();
+        
+        // correct amount to claim
+        const params1 = abi.encode(
+                ["address","uint256","uint256","uint256"], // encode as address array
+                [investor1.address,ETHER_200,MONTH,THREE_MONTHS]);
+
+        const params2 = abi.encode(
+                ["address","uint256","uint256","uint256"], // encode as address array
+                [investor2.address,ETHER_500,MONTH,FOUR_MONTHS]);
+
+        const params3 = abi.encode(
+                ["address","uint256","uint256","uint256"], // encode as address array
+                [investor3.address,ETHER_1000,MONTH,FIVE_MONTHS]);
+
+        const params4 = abi.encode(
+                ["address","uint256","uint256","uint256"], // encode as address array
+                [investor4.address,ETHER_100,MONTH,SIX_MONTHS]);
       
-      // correct amount to claim
-      const params1 = abi.encode(
-            ["address","uint256","uint256","uint256"], // encode as address array
-            [investor1.address,ETHER_200,MONTH,THREE_MONTHS]);
+        // Compute merkle tree branch for all investors
+        const hexProof1 = merkleTree.getHexProof(
+            ethers.utils.keccak256(params1)
+        );
 
-      const params2 = abi.encode(
-            ["address","uint256","uint256","uint256"], // encode as address array
-            [investor2.address,ETHER_500,MONTH,FOUR_MONTHS]);
+        const hexProof2 = merkleTree.getHexProof(
+            ethers.utils.keccak256(params2)
+        );
 
-      const params3 = abi.encode(
-            ["address","uint256","uint256","uint256"], // encode as address array
-            [investor3.address,ETHER_1000,MONTH,FIVE_MONTHS]);
-      
-      // Compute merkle tree branch for all investors
-      const hexProof1 = merkleTree.getHexProof(
-          ethers.utils.keccak256(params1)
-      );
+        const hexProof3 = merkleTree.getHexProof(
+            ethers.utils.keccak256(params3)
+        );
 
-      const hexProof2 = merkleTree.getHexProof(
-          ethers.utils.keccak256(params2)
-      );
+        const hexProof4 = merkleTree.getHexProof(
+            ethers.utils.keccak256(params4)
+        );
 
-      const hexProof3 = merkleTree.getHexProof(
-          ethers.utils.keccak256(params3)
-      );
+        // Claiming tokens for several investors
+        await expect(vesting.connect(investor1).whitelistClaim(
+            hexProof1, ETHER_200, MONTH, THREE_MONTHS, DAY, true
+        )).not.to.be.reverted;
 
-      // Claiming tokens for several investors
-      await expect(vesting.connect(investor1).whitelistClaim(
-          hexProof1, ETHER_200, MONTH, THREE_MONTHS, DAY, true
-      )).not.to.be.reverted;
+        await expect(vesting.connect(investor2).whitelistClaim(
+            hexProof2, ETHER_500, MONTH, FOUR_MONTHS, DAY, true
+        )).not.to.be.reverted;
 
-      await expect(vesting.connect(investor2).whitelistClaim(
-          hexProof2, ETHER_500, MONTH, FOUR_MONTHS, DAY, true
-      )).not.to.be.reverted;
+        await expect(vesting.connect(investor3).whitelistClaim(
+            hexProof3, ETHER_1000, MONTH, FIVE_MONTHS, DAY, true
+        )).not.to.be.reverted;
 
-      await expect(vesting.connect(investor3).whitelistClaim(
-          hexProof3, ETHER_1000, MONTH, FIVE_MONTHS, DAY, true
-      )).not.to.be.reverted;
+        await expect(vesting.connect(investor4).whitelistClaim(
+            hexProof4, ETHER_100, MONTH, SIX_MONTHS, DAY, true
+        )).not.to.be.reverted;
 
-      expect(await vesting.whitelistClaimed(investor1.address)).to.be.equal(true);
-      expect(await vesting.whitelistClaimed(investor2.address)).to.be.equal(true);
-      expect(await vesting.whitelistClaimed(investor3.address)).to.be.equal(true);
+        expect(await vesting.whitelistClaimed(investor1.address)).to.be.equal(true);
+        expect(await vesting.whitelistClaimed(investor2.address)).to.be.equal(true);
+        expect(await vesting.whitelistClaimed(investor3.address)).to.be.equal(true);
+        expect(await vesting.whitelistClaimed(investor4.address)).to.be.equal(true);
 
+        // Validate that the total amount of tokens were minted and deposited in the 
+        // vesting contract. 
+        const totalTokens = ethers.utils.parseEther("1800");
+        expect(await token.balanceOf(vesting.address)).to.be.equal(totalTokens);
     });
   });
 });

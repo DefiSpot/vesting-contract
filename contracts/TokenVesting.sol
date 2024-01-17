@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity 0.8.16;
 
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
-
-import "hardhat/console.sol";
+import {IDefiSpotToken} from "./interfaces/IDefiSpotToken.sol";
 
 /**
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    bytes32 public constant MERKLE_ROOT = 0x6cb6c2a251c778f02a6f3babcba558d7918605bb98228cc519411ed1be219218;
+    bytes32 public constant MERKLE_ROOT = 0x43d71790c10daa7239ca54ce44a71de3e55c90ce5b715efc696da7463c010ec7;
     mapping(address => bool) public whitelistClaimed;
-    
+
     struct VestingSchedule{
         // beneficiary of tokens after they are released
         address  beneficiary;
@@ -36,7 +35,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         // wheter or not the vesting schedule has been created
         bool initialized;
         // whether or not the vesting is revocable
-        bool  revocable;
+        bool  revocable; // Should be always be revocable. 
         // whether or not the vesting has been revoked
         bool revoked;
     } 
@@ -51,9 +50,9 @@ contract TokenVesting is Ownable, ReentrancyGuard{
 
     bytes32[] private vestingSchedulesIds;
 
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
-
+    using SafeMath for uint256;
+    
     event Released(uint256 amount);
     event Revoked();
 
@@ -98,8 +97,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         whitelistClaimed[msg.sender] = true;
 
         bytes32 leaf = keccak256(abi.encode(msg.sender,_amount,_cliff,_duration));
-       
+        
         require(MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf), "invalid proof");
+        
+        IDefiSpotToken(address(_token)).mint(_amount);
         
         status = _createVestingSchedule(
             msg.sender,             // Beneficiary
@@ -142,6 +143,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     * @notice Returns the vesting schedule information for a given holder and index.
     * @return the vesting schedule structure information
     */
+    // We don't need multiple vesting schedules for the same addres!!
     function getVestingScheduleByAddressAndIndex(address holder, uint256 index)
         external
         view
@@ -149,7 +151,6 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     {
         return getVestingSchedule(computeVestingScheduleIdForAddressAndIndex(holder, index));
     }
-
 
     /**
     * @notice Returns the total amount of vesting schedules.
@@ -172,6 +173,30 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         returns(address)
     {
         return address(_token);
+    }
+
+    function createVestingSchedule(
+        address _beneficiary,
+        uint256 _cliff,
+        uint256 _duration,
+        uint256 _slicePeriodSeconds,
+        bool _revocable,
+        uint256 _amount
+    )
+        external
+        onlyOwner()
+        returns(bool status)
+    {
+        status = _createVestingSchedule(
+            _beneficiary,             // Beneficiary
+            getCurrentTime(),       // Vesting schedule start
+            _cliff,                 // Cliff period
+            _duration,              // Total duration
+            _slicePeriodSeconds,    // Slice period in secodns: 1 day
+            _revocable,             // Vesting schedule can be revocable
+            _amount                 // Total amount to distribute
+        );
+        require(status, "Scheduled failed!");
     }
 
     /**
@@ -199,7 +224,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         require(
             this.getWithdrawableAmount() >= _amount, "not enough funds!"
         );
-
+        // Validate that duration is greater than cliff
+        require(_duration > _cliff, "duration is not valid!");
         require(_duration > 0, "duration must be > 0");
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
@@ -237,7 +263,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         onlyIfVestingScheduleNotRevoked(vestingScheduleId)
     {
         VestingSchedule storage vestingSchedule = vestingSchedules[vestingScheduleId];
-        require(vestingSchedule.revocable, "vesting is not revocable!");
+        require(vestingSchedule.revocable, "vesting is not revocable!"); // Do we need this?
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         if(vestedAmount > 0){
             require(release(vestingScheduleId, vestedAmount), "release failed!");
@@ -267,7 +293,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     */
     function release(
         bytes32 vestingScheduleId,
-        uint256 amount
+        uint256 amount // We shouldn't allow to release partially amounts.
     )
         public
         nonReentrant
@@ -286,6 +312,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         vestingSchedule.released = vestingSchedule.released.add(amount);
         address beneficiaryPayable =  vestingSchedule.beneficiary;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.sub(amount);
+        // Release everything. 
         _token.safeTransfer(beneficiaryPayable, amount);
 
         return true;
@@ -376,19 +403,22 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     view
     returns(uint256){
         uint256 currentTime = getCurrentTime();
+
         if ((currentTime < vestingSchedule.cliff) || vestingSchedule.revoked) {
             return 0;
         } else if (currentTime >= vestingSchedule.start.add(vestingSchedule.duration)) {
             return vestingSchedule.amountTotal.sub(vestingSchedule.released);
         } else {
             uint256 timeFromStart = currentTime.sub(vestingSchedule.start);
-            uint secondsPerSlice = vestingSchedule.slicePeriodSeconds;
+            uint256 secondsPerSlice = vestingSchedule.slicePeriodSeconds;
             uint256 vestedSlicePeriods = timeFromStart.div(secondsPerSlice);
             uint256 vestedSeconds = vestedSlicePeriods.mul(secondsPerSlice);
             uint256 vestedAmount = vestingSchedule.amountTotal.mul(vestedSeconds).div(vestingSchedule.duration);
             vestedAmount = vestedAmount.sub(vestingSchedule.released);
             return vestedAmount;
-        }
+
+            // 250 / 150 days 
+        }   // 1 ---- 30  --- 60 ---- 90
     }
 
     function getCurrentTime()

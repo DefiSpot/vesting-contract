@@ -8,11 +8,9 @@ import "./TokenVesting.sol";
  * WARNING: use only for testing and debugging purpose
  */
 contract MockTokenVesting is TokenVesting{
-
     uint256 mockTime = 0;
 
-    constructor(address token_) TokenVesting(token_){
-    }
+    constructor(address token_) TokenVesting(token_){}
 
     function setCurrentTime(uint256 _time)
         external{
