@@ -13,6 +13,7 @@ describe("TokenVesting", function () {
     Token = await ethers.getContractFactory("Token");
     TokenVesting = await ethers.getContractFactory("MockTokenVesting");
   });
+
   beforeEach(async function () {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
     testToken = await Token.deploy("Test Token", "TT", 1000000);
