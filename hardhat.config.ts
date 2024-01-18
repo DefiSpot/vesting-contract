@@ -4,7 +4,7 @@ import "@nomicfoundation/hardhat-toolbox";
 require("dotenv").config();
 require("./tasks/faucet");
 
-const { RINKEBY_URL, PRIVATE_KEY } = process.env;
+const { SEPOLIA_URL, PRIVATE_KEY, ETHERSCAN_KEY } = process.env;
 
 const config: HardhatUserConfig = {
   solidity: "0.8.16",
@@ -13,15 +13,15 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 1337 // We set 1337 to make interacting with MetaMask simpler
     },
-    sepholia: {
-      url: RINKEBY_URL || "",
+    sepolia: {
+      url: SEPOLIA_URL || "",
       accounts:
         PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
   },
   etherscan: {
     apiKey: {
-      rinkeby: "K65MVS5BV4QXWYQEZE78IRRF5SG5TSND7C"
+      sepolia: ETHERSCAN_KEY || ""
     }
   }
 };
