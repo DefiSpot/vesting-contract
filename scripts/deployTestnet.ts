@@ -3,8 +3,6 @@ import { BigNumber} from "ethers";
 const hre = require("hardhat");
 const path = require("path");
 
-// 0xc371718C7b44aD8168887f3Ce97aDB765977dfea Rinkeby Testnet
-
 async function main() {
 
   const TokenVesting = await ethers.getContractFactory("TokenVesting");

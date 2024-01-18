@@ -413,9 +413,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
             uint256 vestedAmount = (vestingSchedule.amountTotal * vestedSeconds) / vestingSchedule.duration;
             vestedAmount = vestedAmount - vestingSchedule.released;
             return vestedAmount;
-
-            // 250 / 150 days 
-        }   // 1 ---- 30  --- 60 ---- 90
+        }
     }
 
     function getCurrentTime()
