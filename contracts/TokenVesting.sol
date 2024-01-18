@@ -5,16 +5,14 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {IDefiSpotToken} from "./interfaces/IDefiSpotToken.sol";
 
 /**
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    bytes32 public constant MERKLE_ROOT = 0x43d71790c10daa7239ca54ce44a71de3e55c90ce5b715efc696da7463c010ec7;
+    bytes32 public constant MERKLE_ROOT = 0x8a688de9a32aa43e34941d5ecad5dac4bb799bf8bbc2c5e838734d549f250d3a;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule{
@@ -51,7 +49,6 @@ contract TokenVesting is Ownable, ReentrancyGuard{
     bytes32[] private vestingSchedulesIds;
 
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
     
     event Released(uint256 amount);
     event Revoked();
@@ -100,7 +97,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         
         require(MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf), "invalid proof");
         
-        IDefiSpotToken(address(_token)).mint(_amount);
+        require(IDefiSpotToken(address(_token)).mint(_amount), "mint failed!");
         
         status = _createVestingSchedule(
             msg.sender,             // Beneficiary
@@ -230,7 +227,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
         bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(_beneficiary);
-        uint256 cliff = _start.add(_cliff);
+        uint256 cliff = _start + _cliff;
 
         vestingSchedules[vestingScheduleId] = VestingSchedule(
             _beneficiary,
@@ -245,10 +242,10 @@ contract TokenVesting is Ownable, ReentrancyGuard{
             false
         );
         
-        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.add(_amount);
+        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount + _amount;
         vestingSchedulesIds.push(vestingScheduleId);
         uint256 currentVestingCount = holdersVestingCount[_beneficiary];
-        holdersVestingCount[_beneficiary] = currentVestingCount.add(1);
+        holdersVestingCount[_beneficiary] = currentVestingCount + 1;
 
         return true;
     }
@@ -268,8 +265,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         if(vestedAmount > 0){
             require(release(vestingScheduleId, vestedAmount), "release failed!");
         }
-        uint256 unreleased = vestingSchedule.amountTotal.sub(vestingSchedule.released);
-        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.sub(unreleased);
+        uint256 unreleased = vestingSchedule.amountTotal - vestingSchedule.released;
+        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - unreleased;
         vestingSchedule.revoked = true;
     }
 
@@ -309,9 +306,9 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         );
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         require(vestedAmount >= amount, "cannot release tokens!");
-        vestingSchedule.released = vestingSchedule.released.add(amount);
+        vestingSchedule.released = vestingSchedule.released + amount;
         address beneficiaryPayable =  vestingSchedule.beneficiary;
-        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.sub(amount);
+        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
         // Release everything. 
         _token.safeTransfer(beneficiaryPayable, amount);
 
@@ -361,7 +358,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         external
         view
         returns(uint256){
-        return _token.balanceOf(address(this)).sub(vestingSchedulesTotalAmount);
+        return _token.balanceOf(address(this)) - vestingSchedulesTotalAmount;
     }
 
     /**
@@ -406,15 +403,15 @@ contract TokenVesting is Ownable, ReentrancyGuard{
 
         if ((currentTime < vestingSchedule.cliff) || vestingSchedule.revoked) {
             return 0;
-        } else if (currentTime >= vestingSchedule.start.add(vestingSchedule.duration)) {
-            return vestingSchedule.amountTotal.sub(vestingSchedule.released);
+        } else if (currentTime >= vestingSchedule.start + vestingSchedule.duration) {
+            return vestingSchedule.amountTotal - vestingSchedule.released;
         } else {
-            uint256 timeFromStart = currentTime.sub(vestingSchedule.start);
+            uint256 timeFromStart = currentTime - vestingSchedule.start;
             uint256 secondsPerSlice = vestingSchedule.slicePeriodSeconds;
-            uint256 vestedSlicePeriods = timeFromStart.div(secondsPerSlice);
-            uint256 vestedSeconds = vestedSlicePeriods.mul(secondsPerSlice);
-            uint256 vestedAmount = vestingSchedule.amountTotal.mul(vestedSeconds).div(vestingSchedule.duration);
-            vestedAmount = vestedAmount.sub(vestingSchedule.released);
+            uint256 vestedSlicePeriods = timeFromStart / secondsPerSlice;
+            uint256 vestedSeconds = vestedSlicePeriods * secondsPerSlice;
+            uint256 vestedAmount = (vestingSchedule.amountTotal * vestedSeconds) / vestingSchedule.duration;
+            vestedAmount = vestedAmount - vestingSchedule.released;
             return vestedAmount;
 
             // 250 / 150 days 
