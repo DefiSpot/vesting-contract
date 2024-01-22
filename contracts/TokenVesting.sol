@@ -50,6 +50,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
 
     using SafeERC20 for IERC20;
     
+    event LogNewVestingSchedule(
+        address _sender, address _beneficiary, bytes32 _vestingScheduleId, uint256 _vestingCount);
     event Released(uint256 amount);
     event Revoked();
 
@@ -97,7 +99,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         
         require(MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf), "invalid proof");
         
-        require(IDefiSpotToken(address(_token)).mint(_amount), "mint failed!");
+        //require(IDefiSpotToken(address(_token)).mint(_amount), "mint failed!");
         
         status = _createVestingSchedule(
             msg.sender,             // Beneficiary
@@ -218,6 +220,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         private
         returns (bool)
     {
+        require(IDefiSpotToken(address(_token)).mint(_amount), "mint failed!");
+
         require(
             this.getWithdrawableAmount() >= _amount, "not enough funds!"
         );
@@ -246,6 +250,8 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         vestingSchedulesIds.push(vestingScheduleId);
         uint256 currentVestingCount = holdersVestingCount[_beneficiary];
         holdersVestingCount[_beneficiary] = currentVestingCount + 1;
+
+        emit LogNewVestingSchedule(msg.sender, _beneficiary, vestingScheduleId, currentVestingCount + 1);
 
         return true;
     }

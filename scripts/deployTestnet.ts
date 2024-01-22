@@ -15,7 +15,7 @@ async function main() {
   await tokenVesting.deployed();
 
   console.log(defiSpot.address, " Token Vesting address");
-  //0xDb3182cB5082268dAd20Cf672586568A6527Ac4e
+  // 0xDb3182cB5082268dAd20Cf672586568A6527Ac4e
 
   console.log(tokenVesting.address, " Token Vesting address");
   // 0xA3eEb65B3Ee6EfE8aE0e3Bd38Be5D38Fcf39f134

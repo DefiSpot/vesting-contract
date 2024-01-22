@@ -89,7 +89,7 @@ async function deployContracts() {
 }
 
 describe("Vesting Contract Testing", () => {
-   describe("Test: Tolen vesting features using whitelist",  () => {
+   describe("Test: Token vesting features using whitelist",  () => {
         it("Should validate the contract owner ", async () => {
             const {vesting, owner} = await loadFixture(deployContracts)
 
