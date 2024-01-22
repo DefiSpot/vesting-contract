@@ -89,7 +89,7 @@ async function deployContracts() {
 }
 
 describe("Vesting Contract Testing", () => {
-    describe("Test: Tolen vesting features using whitelist",  () => {
+   describe("Test: Token vesting features using whitelist",  () => {
         it("Should validate the contract owner ", async () => {
             const {vesting, owner} = await loadFixture(deployContracts)
 
@@ -683,7 +683,7 @@ describe("Vesting Contract Testing", () => {
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_200);
         });
 
-        it("Should not be able to release more than vested even in portions when cliff ends", async () => {
+        it("Should not be able to release more than vested even when cliff ends", async () => {
             const {owner, vesting, investor, token} = await loadFixture(deployContracts);
 
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
@@ -720,7 +720,108 @@ describe("Vesting Contract Testing", () => {
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ethers.utils.parseEther('200'));
         });
+
+        it("Should release the amount during cliff even if after the schedule is revoked.", async () => {
+            const {owner, vesting, investor, token} = await loadFixture(deployContracts);
+            
+            const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
+            await vesting.setCurrentTime(startTime + MONTH);
+
+            await expect(vesting.revoke(vestingScheduleId))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [ETHER_50]
+                );
+
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_50);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_150);
+        });
     });
 
+    describe("Test: Validate vested amount between cliff and period ends",  () => { 
+        it("Should release all amount one day after cliff ends", async () => {
+            const {owner, vesting, investor, token} = await loadFixture(deployContracts);
+            
+            const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
+            await vesting.setCurrentTime(startTime + MONTH + DAY);
+
+            const amount = ethers.BigNumber.from(ETHER_200).mul(MONTH + DAY).div(FOUR_MONTHS);
+            
+             await expect(vesting.connect(investor).release(vestingScheduleId, amount))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [amount]
+                );
+
+            expect(await token.balanceOf(investor.address)).to.be.equal(amount);
+            const remainVestedAmount = ethers.BigNumber.from(ETHER_200).sub(amount);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(remainVestedAmount);
+
+        }); 
+        it("Should allow to release one day after cliff ends", async () => {
+            const {owner, vesting, investor, token} = await loadFixture(deployContracts);
+            
+            const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
+            await vesting.setCurrentTime(startTime + MONTH);
+
+            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [ETHER_50]
+                );
+
+
+            const amount = ethers.BigNumber.from(ETHER_200).mul(DAY).div(FOUR_MONTHS);
+            
+            await vesting.setCurrentTime(startTime + MONTH + DAY);
+            await expect(vesting.connect(investor).release(vestingScheduleId, amount))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [amount]
+                );
+            const totalAmount = ethers.BigNumber.from(ETHER_50).add(amount)
+            expect(await token.balanceOf(investor.address)).to.be.equal(totalAmount);
+
+            const remainVestedAmount = ethers.BigNumber.from(ETHER_200).sub(totalAmount);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(remainVestedAmount);
+        }); 
+
+        it("Should allow to release everyday until period ends", async () => {
+            const {owner, vesting, investor, token} = await loadFixture(deployContracts);
+            
+            const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
+
+            await vesting.setCurrentTime(startTime + MONTH);
+
+            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [ETHER_50]
+                );
+
+            const totalDays = (FOUR_MONTHS - MONTH) / DAY;
+            
+            for(let i = 1; i <= totalDays; i++)
+            {
+                await vesting.setCurrentTime(startTime + MONTH + i * DAY);
+                const dailyAmount = await vesting.computeReleasableAmount(vestingScheduleId);
+
+                await expect(vesting.connect(investor).release(vestingScheduleId, dailyAmount))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [dailyAmount]
+                );
+            }
+            
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(ZERO);
+        });
+    });
 
 });

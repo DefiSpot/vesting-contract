@@ -3,18 +3,24 @@ import { BigNumber} from "ethers";
 const hre = require("hardhat");
 const path = require("path");
 
-// 0xc371718C7b44aD8168887f3Ce97aDB765977dfea Rinkeby Testnet
-
 async function main() {
 
+  const initialSupply = ethers.utils.parseEther("100");
+  const DefiSpot = await ethers.getContractFactory("DefiSpotToken");
+  const defiSpot = await DefiSpot.deploy("Spot Token","SPOT", initialSupply);
+  await defiSpot.deployed();
+
   const TokenVesting = await ethers.getContractFactory("TokenVesting");
-  const spotToken = "0xF493BcA6BA0c0088eD1D8257670055DF47878084";
-  const tokenVesting = await TokenVesting.deploy(spotToken);
+  const tokenVesting = await TokenVesting.deploy(defiSpot.address);
   await tokenVesting.deployed();
 
-  console.log(tokenVesting.address, " Token Vesting address");
+  console.log(defiSpot.address, " Token Vesting address");
+  // 0xDb3182cB5082268dAd20Cf672586568A6527Ac4e
 
-  saveFrontendFiles(TokenVesting);
+  console.log(tokenVesting.address, " Token Vesting address");
+  // 0xA3eEb65B3Ee6EfE8aE0e3Bd38Be5D38Fcf39f134
+
+  //saveFrontendFiles(DefiSpot);
 
 }
 

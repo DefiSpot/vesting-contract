@@ -86,6 +86,33 @@ describe("Vesting Contract Testing", () => {
       expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
     });
 
+    it("Should validate correct event parameters", async () => {
+      const {vesting, leafNodes, merkleTree, abi, owner, investor, notInvestor} = await loadFixture(deployContracts)
+      
+      // Get valid parameters.
+      const params = abi.encode(
+            ["address","uint256","uint256","uint256"], // encode as address array
+            [investor.address,ETHER_200,MONTH,FOUR_MONTHS]);
+      
+      // Compute merkle tree branch
+      const hexProof = merkleTree.getHexProof(
+          ethers.utils.keccak256(params)
+      );
+
+        const vestingScheduleId = await vesting.computeVestingScheduleIdForAddressAndIndex(
+            investor.address,
+            0
+          );
+
+      // Validate correct information
+      await expect(vesting.connect(investor).whitelistClaim(
+          hexProof,ETHER_200, MONTH,FOUR_MONTHS, DAY, true
+      )).to.emit(vesting, "LogNewVestingSchedule")
+        .withArgs(investor.address, investor.address, vestingScheduleId, 1);
+
+      expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
+    });
+
     it("Should validate that the correct amount has been minted", async () => {
       const {vesting, token, leafNodes, merkleTree, abi, owner, investor, notInvestor} = await loadFixture(deployContracts)
       
