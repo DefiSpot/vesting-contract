@@ -12,7 +12,7 @@ import {IDefiSpotToken} from "./interfaces/IDefiSpotToken.sol";
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard{
-    bytes32 public constant MERKLE_ROOT = 0x8a688de9a32aa43e34941d5ecad5dac4bb799bf8bbc2c5e838734d549f250d3a;
+    bytes32 public constant MERKLE_ROOT = 0xe8e4fe44ce36f1f9fd1923f5e8c3740c36afef481d8a662d2c18df7739b79a01;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule{
@@ -95,7 +95,7 @@ contract TokenVesting is Ownable, ReentrancyGuard{
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
 
-        bytes32 leaf = keccak256(abi.encode(msg.sender,_amount,_cliff,_duration));
+        bytes32 leaf = keccak256(abi.encode(msg.sender,_amount,_cliff,_duration,block.chainid));
         
         require(MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf), "invalid proof");
         
