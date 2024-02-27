@@ -14,10 +14,6 @@ contract DefiSpotToken is ERC20Capped, AccessControl {
         ERC20(_name, _symbol)
     {
         ERC20Capped._mint(msg.sender, initialSpotToMint);
-        //@Todo Which admin functions do we need to use a multisig wallet.
-        //@Todo For instance, do we need a multisig to change the minting rate per second?
-        //@Todo Can a multisig wallet by an automated script?
-        //@Todo Ability to add an address to the rate adjuster role?
         _grantRole(MINTER_MAKER, msg.sender);
         _setRoleAdmin(DEFAULT_ADMIN_ROLE, MINTER_MAKER);
 
@@ -29,7 +25,6 @@ contract DefiSpotToken is ERC20Capped, AccessControl {
         _grantRole(MINTER, _account);
     }
 
-    // @TODO Check this function to guarantee enough tokens to the stakers.
     function mint(uint256 amount) 
         public 
         onlyRole(MINTER)
