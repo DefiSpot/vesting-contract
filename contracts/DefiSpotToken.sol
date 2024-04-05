@@ -17,8 +17,6 @@ contract DefispotToken is ERC20Capped, AccessControl {
         ERC20Capped._mint(msg.sender, initialSpotToMint);
         _grantRole(MINTER_MAKER, msg.sender);
         _setRoleAdmin(DEFAULT_ADMIN_ROLE, MINTER_MAKER);
-
-        _setRoleAdmin(MINTER, MINTER_MAKER);
         _grantRole(MINTER, msg.sender);
     }
 
