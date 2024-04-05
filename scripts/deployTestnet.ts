@@ -6,8 +6,8 @@ const path = require("path");
 async function main() {
 
   const initialSupply = ethers.utils.parseEther("100");
-  const DefiSpot = await ethers.getContractFactory("DefiSpotToken");
-  const defiSpot = await DefiSpot.deploy("Spot Token","SPOT", initialSupply);
+  const Defispot = await ethers.getContractFactory("DefispotToken");
+  const defiSpot = await Defispot.deploy("Spot Token","SPOT", initialSupply);
   await defiSpot.deployed();
 
   const TokenVesting = await ethers.getContractFactory("TokenVesting");
@@ -20,7 +20,7 @@ async function main() {
   console.log(tokenVesting.address, " Token Vesting address");
   // 0xA3eEb65B3Ee6EfE8aE0e3Bd38Be5D38Fcf39f134
 
-  //saveFrontendFiles(DefiSpot);
+  //saveFrontendFiles(Defispot);
 
 }
 

@@ -45,7 +45,7 @@ async function deployContracts() {
       ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId]
     ]
 
-    const Token = await ethers.getContractFactory("DefiSpotToken");
+    const Token = await ethers.getContractFactory("DefispotToken");
     const token = await Token.deploy("Spot Token", "SPOT", initialSupply);
 
     const Vesting = await ethers.getContractFactory("TokenVesting");

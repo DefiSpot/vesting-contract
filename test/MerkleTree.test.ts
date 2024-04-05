@@ -44,7 +44,7 @@ async function deployContracts() {
     ]
     
     const [owner, investor, notInvestor] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory("DefiSpotToken");
+    const Token = await ethers.getContractFactory("DefispotToken");
     const token = await Token.deploy("Spot Token", "SPOT", initialSupply);
 
     const Vesting = await ethers.getContractFactory("TokenVesting");
