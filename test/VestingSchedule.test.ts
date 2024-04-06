@@ -136,7 +136,7 @@ describe("Vesting Contract Create Vesting Schedule Testing", () => {
             slicePeriodSeconds,
             revokable,
             amount
-        )).to.be.revertedWith("Ownable: caller is not the owner");
+        )).to.be.revertedWithCustomError(vesting,`OwnableUnauthorizedAccount`);
     });
 
     it("should allow to create a second vesting schedule for an investor", async () => {

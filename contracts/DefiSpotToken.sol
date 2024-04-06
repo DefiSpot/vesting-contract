@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.20;
 
 import {ERC20Capped, ERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
@@ -14,7 +14,7 @@ contract DefispotToken is ERC20Capped, AccessControl {
         string memory _symbol,
         uint256 initialSpotToMint
     ) ERC20Capped(MAX_SUPPLY) ERC20(_name, _symbol) {
-        ERC20Capped._mint(msg.sender, initialSpotToMint);
+        _mint(msg.sender, initialSpotToMint);
         _grantRole(MINTER_MAKER, msg.sender);
         _setRoleAdmin(DEFAULT_ADMIN_ROLE, MINTER_MAKER);
         _grantRole(MINTER, msg.sender);
@@ -26,7 +26,7 @@ contract DefispotToken is ERC20Capped, AccessControl {
 
     function mint(uint256 amount) public onlyRole(MINTER) returns (bool) {
         // @Todo Aggregar role rate adjuster.
-        ERC20Capped._mint(msg.sender, amount);
+        _mint(msg.sender, amount);
         return true;
     }
 }

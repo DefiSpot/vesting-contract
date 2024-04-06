@@ -11,11 +11,11 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
     "@nomicfoundation/hardhat-toolbox": "^1.0.2",
-    "hardhat": "^2.10.2",
-    "typescript": "^5.4.4"
+    "typescript": "^5.4.4",
+    "hardhat": "^2.22.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3",
+    "@openzeppelin/contracts": "^5.0.2",
     "dotenv": "^16.0.1",
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.3.11"

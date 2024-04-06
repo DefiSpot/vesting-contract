@@ -258,7 +258,7 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             
             await expect(vesting.connect(investor).revoke(vestingScheduleId))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            .to.be.revertedWithCustomError(vesting,`OwnableUnauthorizedAccount`);
         });
 
         it("Should allow the owner to revoke a vesting schedule", async () => {

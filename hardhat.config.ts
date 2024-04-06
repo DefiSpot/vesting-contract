@@ -7,7 +7,7 @@ require("./tasks/faucet");
 const { SEPOLIA_URL, PRIVATE_KEY, ETHERSCAN_KEY } = process.env;
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.16",
+  solidity: "0.8.20",
   
   networks: {
     hardhat: {
