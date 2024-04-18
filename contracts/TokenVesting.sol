@@ -421,13 +421,10 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         ) {
             return vestingSchedule.amountTotal - vestingSchedule.released;
         } else {
-            uint256 timeFromStart = currentTime - vestingSchedule.start;
-            uint256 secondsPerSlice = vestingSchedule.slicePeriodSeconds;
-            uint256 vestedSlicePeriods = timeFromStart / secondsPerSlice;
-            uint256 vestedSeconds = vestedSlicePeriods * secondsPerSlice;
-            uint256 vestedAmount = (vestingSchedule.amountTotal *
-                vestedSeconds) / vestingSchedule.duration;
-            vestedAmount = vestedAmount - vestingSchedule.released;
+            uint256 vestedSeconds = currentTime - vestingSchedule.start;
+            uint256 vestedAmount = (vestingSchedule.amountTotal * vestedSeconds) / vestingSchedule.duration;
+            vestedAmount = vestedAmount - vestingSchedule.released; 
+
             return vestedAmount;
         }
     }
