@@ -14,6 +14,7 @@ contract DefispotToken is ERC20Capped, AccessControl {
         string memory _symbol,
         uint256 initialSpotToMint
     ) ERC20Capped(MAX_SUPPLY) ERC20(_name, _symbol) {
+        require(initialSpotToMint > 0, "initial amount is zero!");
         _mint(msg.sender, initialSpotToMint);
         _grantRole(MINTER_MAKER, msg.sender);
         _setRoleAdmin(DEFAULT_ADMIN_ROLE, MINTER_MAKER);
@@ -27,6 +28,7 @@ contract DefispotToken is ERC20Capped, AccessControl {
     }
 
     function mint(uint256 amount) public onlyRole(MINTER) returns (bool) {
+        require(amount > 0, "amount is zero!");
         _mint(msg.sender, amount);
         return true;
     }
