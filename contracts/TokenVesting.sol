@@ -218,8 +218,6 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         uint256 _amount
     ) private returns (bool) {
         require(_beneficiary != address(0), "beneficiary equals zero!");
-        require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
-        require(getWithdrawableAmount() >= _amount, "not enough funds!");
         require(_duration > _cliff, "duration is not valid!");
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
@@ -252,6 +250,8 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             holdersVestingCount[_beneficiary]
         );
 
+        require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
+        
         return true;
     }
 
