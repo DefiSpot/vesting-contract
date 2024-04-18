@@ -47,15 +47,15 @@ async function deployContracts() {
     const chainId = chainObj.chainId;
     // [investor account, amount, period (in secodns), cliff (in second), chainId]
     const whitelistAddresses = [
-      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS, chainId],
-      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS, chainId],
-      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS, chainId],
-      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS, chainId],
-      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS, chainId],
-      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS, chainId],
-      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH, chainId],
-      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH, chainId],
-      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId]
+      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS, chainId, true],
+      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS, chainId, false],
+      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS, chainId, true],
+      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS, chainId, false],
+      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS, chainId, false],
+      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS, chainId, false],
+      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH, chainId, false],
+      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH, chainId, false],
+      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId, false]
     ]
 
     const [owner, investor, notInvestor] = await ethers.getSigners();
@@ -70,8 +70,8 @@ async function deployContracts() {
 
     const leafNodes = whitelistAddresses.map(addr => {
         let params = abi.encode(
-          ["address","uint256","uint256","uint256","uint256"],
-          [addr[0].toString(),addr[1],addr[2],addr[3],addr[4]]);
+          ["address","uint256","uint256","uint256","uint256","bool"],
+          [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5]]);
 
         return ethers.utils.keccak256(params);            
       }
@@ -79,8 +79,8 @@ async function deployContracts() {
 
     // Get valid parameters.
     const params = abi.encode(
-        ["address","uint256","uint256","uint256","uint256"], // encode as address array
-        [investor.address,ETHER_200,MONTH,FOUR_MONTHS,chainId]);
+        ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
+        [investor.address,ETHER_200,MONTH,FOUR_MONTHS,chainId,false]);
     
     const merkleTree = new MerkleTree(leafNodes, ethers.utils.keccak256, {sortPairs: true});
     
@@ -92,7 +92,7 @@ async function deployContracts() {
     await vesting.setCurrentTime(startTime);
 
     await expect(vesting.connect(investor).whitelistClaim(
-          hexProof,ETHER_200, MONTH,FOUR_MONTHS, DAY, true
+          hexProof,ETHER_200, MONTH,FOUR_MONTHS, false
     )).not.to.be.reverted;
 
     expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);

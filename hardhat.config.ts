@@ -1,8 +1,10 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "solidity-coverage"
 
 require("dotenv").config();
 require("./tasks/faucet");
+//require('solidity-coverage');
 
 const { SEPOLIA_URL, PRIVATE_KEY, ETHERSCAN_KEY } = process.env;
 
@@ -11,7 +13,8 @@ const config: HardhatUserConfig = {
   
   networks: {
     hardhat: {
-      chainId: 1337 // We set 1337 to make interacting with MetaMask simpler
+      // We set 1337 to make interacting with MetaMask simpler
+      chainId: 1337
     },
     sepolia: {
       url: SEPOLIA_URL || "",
