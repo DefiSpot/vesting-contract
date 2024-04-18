@@ -116,16 +116,14 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             "invalid proof"
         );
 
-        //require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
-
         status = _createVestingSchedule(
-            msg.sender, // Beneficiary
-            getCurrentTime(), // Vesting schedule start
-            _cliff, // Cliff period
-            _duration, // Total duration
-            ONE_DAY, // Slice period in secodns: 1 day
-            _revocable, // Vesting schedule can be revocable
-            _amount // Total amount to distribute
+            msg.sender,         // Beneficiary
+            getCurrentTime(),   // Vesting schedule start
+            _cliff,             // Cliff period
+            _duration,          // Total duration
+            ONE_DAY,            // Slice period in secodns: 1 day
+            _revocable,         // Vesting schedule can be revocable
+            _amount             // Total amount to distribute
         );
         require(status, "Scheduled failed!");
     }
@@ -155,7 +153,6 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      * @notice Returns the vesting schedule information for a given holder and index.
      * @return the vesting schedule structure information
      */
-    // We don't need multiple vesting schedules for the same addres!!
     function getVestingScheduleByAddressAndIndex(
         address holder,
         uint256 index
@@ -190,13 +187,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         uint256 _amount
     ) external onlyOwner returns (bool status) {
         status = _createVestingSchedule(
-            _beneficiary, // Beneficiary
-            getCurrentTime(), // Vesting schedule start
-            _cliff, // Cliff period
-            _duration, // Total duration
-            _slicePeriodSeconds, // Slice period in secodns: 1 day
-            _revocable, // Vesting schedule can be revocable
-            _amount // Total amount to distribute
+            _beneficiary,           // Beneficiary
+            getCurrentTime(),       // Vesting schedule start
+            _cliff,                 // Cliff period
+            _duration,              // Total duration
+            _slicePeriodSeconds,    // Slice period in secodns: 1 day
+            _revocable,             // Vesting schedule can be revocable
+            _amount                 // Total amount to distribute
         );
         require(status, "Scheduled failed!");
     }
@@ -271,7 +268,9 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         VestingSchedule storage vestingSchedule = vestingSchedules[
             vestingScheduleId
         ];
-        require(vestingSchedule.revocable, "vesting is not revocable!"); // Do we need this?
+
+        require(vestingSchedule.revocable, "vesting is not revocable!");
+
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         if (vestedAmount > 0) {
             require(
@@ -322,7 +321,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         vestingSchedule.released = vestingSchedule.released + amount;
         address beneficiaryPayable = vestingSchedule.beneficiary;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
-        // Release everything.
+        
         _token.safeTransfer(beneficiaryPayable, amount);
 
         return true;

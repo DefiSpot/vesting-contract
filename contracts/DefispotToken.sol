@@ -27,7 +27,6 @@ contract DefispotToken is ERC20Capped, AccessControl {
     }
 
     function mint(uint256 amount) public onlyRole(MINTER) returns (bool) {
-        // @Todo Aggregar role rate adjuster.
         _mint(msg.sender, amount);
         return true;
     }
