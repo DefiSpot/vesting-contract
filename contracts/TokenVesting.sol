@@ -12,8 +12,10 @@ import {IDefispotToken} from "./interfaces/IDefispotToken.sol";
  * @title TokenVesting
  */
 contract TokenVesting is Ownable, ReentrancyGuard {
+    uint256 public constant ONE_DAY = 1 days;
+
     bytes32 public constant MERKLE_ROOT =
-        0xe8e4fe44ce36f1f9fd1923f5e8c3740c36afef481d8a662d2c18df7739b79a01;
+        0xd1ea4d6fdd36239cf47a0fb25a7726dbe9e20202a83e1e59ed020b0ecbe24a30;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule {
@@ -100,14 +102,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         uint256 _amount,
         uint256 _cliff,
         uint256 _duration,
-        uint256 _slicePeriodSeconds,
         bool _revocable
     ) external returns (bool status) {
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
 
         bytes32 leaf = keccak256(
-            abi.encode(msg.sender, _amount, _cliff, _duration, block.chainid)
+            abi.encode(msg.sender, _amount, _cliff, _duration, block.chainid, _revocable)
         );
 
         require(
@@ -122,7 +123,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             getCurrentTime(), // Vesting schedule start
             _cliff, // Cliff period
             _duration, // Total duration
-            _slicePeriodSeconds, // Slice period in secodns: 1 day
+            ONE_DAY, // Slice period in secodns: 1 day
             _revocable, // Vesting schedule can be revocable
             _amount // Total amount to distribute
         );
@@ -303,7 +304,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      */
     function release(
         bytes32 vestingScheduleId,
-        uint256 amount // We shouldn't allow to release partially amounts.
+        uint256 amount
     )
         public
         nonReentrant
