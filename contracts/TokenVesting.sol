@@ -217,12 +217,10 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         bool _revocable,
         uint256 _amount
     ) private returns (bool) {
+        require(_beneficiary != address(0), "beneficiary equals zero!");
         require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
-
         require(getWithdrawableAmount() >= _amount, "not enough funds!");
-        // Validate that duration is greater than cliff
         require(_duration > _cliff, "duration is not valid!");
-        require(_duration > 0, "duration must be > 0");
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
         bytes32 vestingScheduleId = computeNextVestingScheduleIdForHolder(
