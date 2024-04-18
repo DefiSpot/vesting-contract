@@ -5,7 +5,7 @@ import {ERC20Capped, ERC20} from "@openzeppelin/contracts/token/ERC20/extensions
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract DefispotToken is ERC20Capped, AccessControl {
-    uint256 public constant MAX_SUPPLY = 1000000000 ether;
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 ether;
     bytes32 public constant MINTER = keccak256("MINTER");
     bytes32 public constant MINTER_MAKER = keccak256("MINTER_MAKER");
 
@@ -27,7 +27,6 @@ contract DefispotToken is ERC20Capped, AccessControl {
     }
 
     function mint(uint256 amount) public onlyRole(MINTER) returns (bool) {
-        // @Todo Aggregar role rate adjuster.
         _mint(msg.sender, amount);
         return true;
     }
