@@ -219,13 +219,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     ) private returns (bool) {
         require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
 
-        require(this.getWithdrawableAmount() >= _amount, "not enough funds!");
+        require(getWithdrawableAmount() >= _amount, "not enough funds!");
         // Validate that duration is greater than cliff
         require(_duration > _cliff, "duration is not valid!");
         require(_duration > 0, "duration must be > 0");
         require(_amount > 0, "amount must be > 0");
         require(_slicePeriodSeconds >= 1, "slicePeriodSeconds must be >= 1");
-        bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(
+        bytes32 vestingScheduleId = computeNextVestingScheduleIdForHolder(
             _beneficiary
         );
         uint256 cliff = _start + _cliff;
@@ -277,8 +277,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
                 "release failed!"
             );
         }
-        uint256 unreleased = vestingSchedule.amountTotal -
-            vestingSchedule.released;
+        uint256 unreleased = vestingSchedule.amountTotal - vestingSchedule.released;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - unreleased;
         vestingSchedule.revoked = true;
     }
@@ -289,7 +288,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      */
     function withdraw(uint256 amount) external nonReentrant onlyOwner {
         require(
-            this.getWithdrawableAmount() >= amount,
+            getWithdrawableAmount() >= amount,
             "not enough withdrawable funds!"
         );
         _token.safeTransfer(owner(), amount);
@@ -366,7 +365,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      * @dev Returns the amount of tokens that can be withdrawn by the owner.
      * @return the amount of tokens
      */
-    function getWithdrawableAmount() external view returns (uint256) {
+    function getWithdrawableAmount() public view returns (uint256) {
         return _token.balanceOf(address(this)) - vestingSchedulesTotalAmount;
     }
 
@@ -375,7 +374,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      */
     function computeNextVestingScheduleIdForHolder(
         address holder
-    ) external view returns (bytes32) {
+    ) public view returns (bytes32) {
         return
             computeVestingScheduleIdForAddressAndIndex(
                 holder,
