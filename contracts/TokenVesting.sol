@@ -248,14 +248,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
 
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount + _amount;
         vestingSchedulesIds.push(vestingScheduleId);
-        uint256 currentVestingCount = holdersVestingCount[_beneficiary];
-        holdersVestingCount[_beneficiary] = currentVestingCount + 1;
+        holdersVestingCount[_beneficiary]++;
 
         emit LogNewVestingSchedule(
             msg.sender,
             _beneficiary,
             vestingScheduleId,
-            currentVestingCount + 1
+            holdersVestingCount[_beneficiary]
         );
 
         return true;

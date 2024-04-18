@@ -149,6 +149,42 @@ describe("Vesting Contract Testing", () => {
             expect(await vesting.getWithdrawableAmount()).to.be.equal(ZERO);
         });
 
+        it("Should validate the new vesting schedule log", async () => {
+            const {vesting, token, merkleTree, abi} = await loadFixture(deployContracts)
+            const [owner, investor, investor1, investor2] = await ethers.getSigners();
+
+            const chainObj = await ethers.provider.getNetwork();
+            const chainId = chainObj.chainId;
+            
+            const params2 = abi.encode(
+                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor2.address,ETHER_500,MONTH,FOUR_MONTHS,chainId,false]);
+                        
+            const hexProof2 = merkleTree.getHexProof(
+                ethers.utils.keccak256(params2)
+            );
+
+            expect(await vesting.getVestingSchedulesCount()).to.be.equal(2);
+            expect(await vesting.getVestingSchedulesTotalAmount()).to.be.equal(ETHER_400);
+            expect(await vesting.getVestingSchedulesCountByBeneficiary(investor2.address)).to.be.equal(ZERO);
+
+            let nextId = await vesting.computeNextVestingScheduleIdForHolder(investor2.address)
+            await expect(vesting.connect(investor2).whitelistClaim(
+                    hexProof2, ETHER_500, MONTH, FOUR_MONTHS, false
+                ))
+                .to.emit(vesting, "LogNewVestingSchedule")
+                .withArgs(investor2.address, investor2.address, nextId, 1);
+
+             expect(await vesting.getVestingSchedulesCount()).to.be.equal(3);
+            expect(await vesting.getVestingSchedulesTotalAmount()).to.be.equal(ethers.utils.parseEther("900"));
+            expect(await vesting.getVestingSchedulesCountByBeneficiary(investor2.address)).to.be.equal(1);
+            
+            expect(await vesting.whitelistClaimed(investor2.address)).to.be.equal(true);
+            
+            expect(await vesting.getWithdrawableAmount()).to.be.equal(ZERO);
+
+        });
+
         it("Should validate multiple amounts from several investors", async () => {
             const {vesting, token, merkleTree, abi} = await loadFixture(deployContracts)
             const [owner, investor, investor1, investor2, investor3, investor4] = await ethers.getSigners();
