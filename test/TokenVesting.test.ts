@@ -87,9 +87,6 @@ async function deployContracts() {
 
     expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
 
-    //*********
-
-    
     const params2 = abi.encode(
                 ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
                 [investorRevokable.address,ETHER_200,MONTH,THREE_MONTHS,chainId,true]);
@@ -475,10 +472,10 @@ describe("Vesting Contract Testing", () => {
                 );
 
             await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
 
             await expect(vesting.connect(investor).release(vestingScheduleId, 1))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
         });
 
         it("Should not be able to release more than vested even in parts", async () => {
@@ -495,7 +492,7 @@ describe("Vesting Contract Testing", () => {
                 );
 
             await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
 
             expect(await vesting.computeReleasableAmount(vestingScheduleId)).to.be.equal(ETHER_100);
         });
@@ -640,7 +637,7 @@ describe("Vesting Contract Testing", () => {
             await vesting.setCurrentTime(startTime + MONTH - 1);
             
             await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.revertedWith("cannot release tokens!");
+                .to.be.revertedWith("Releasable amount exceeded");
                 
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
@@ -724,10 +721,10 @@ describe("Vesting Contract Testing", () => {
                 );
 
             await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
 
             await expect(vesting.connect(investor).release(vestingScheduleId, 1))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
         });
 
         it("Should not allow other accouts to claim a portion of tokens on behalf the investor", async () => {
@@ -759,7 +756,7 @@ describe("Vesting Contract Testing", () => {
                 );
 
             await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.rejectedWith("cannot release tokens!");
+                .to.be.rejectedWith("Releasable amount exceeded");
 
             expect(await vesting.computeReleasableAmount(vestingScheduleId))
                 .to.be.equal(ethers.utils.parseEther('40'));
