@@ -270,17 +270,14 @@ contract TokenVesting is Ownable, ReentrancyGuard {
 
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         if (vestedAmount > 0) {
-            require(
-                release(vestingScheduleId, vestedAmount),
-                "release failed!"
-            );
+            require(release(vestingScheduleId), "release failed!");
         }
         uint256 unreleased = vestingSchedule.amountTotal - vestingSchedule.released;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - unreleased;
         vestingSchedule.revoked = true;
     }
 
-    /**
+    /*
      * @notice Withdraw the specified amount if possible.
      * @param amount the amount to withdraw
      */
@@ -292,15 +289,12 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         _token.safeTransfer(owner(), amount);
     }
 
-    /**
+    /*
      * @notice Release vested amount of tokens.
      * @param vestingScheduleId the vesting schedule identifier
      * @param amount the amount to release
      */
-    function release(
-        bytes32 vestingScheduleId,
-        uint256 amount
-    )
+    function release(bytes32 vestingScheduleId)
         public
         nonReentrant
         onlyIfVestingScheduleNotRevoked(vestingScheduleId)
@@ -312,13 +306,24 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
         bool isOwner = msg.sender == owner();
         require(isBeneficiary || isOwner, "only beneficiary and owner!");
+
+        /*
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         require(vestedAmount >= amount, "Releasable amount exceeded");
         vestingSchedule.released = vestingSchedule.released + amount;
         address beneficiaryPayable = vestingSchedule.beneficiary;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
+        */
+        //uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
+        //require(vestedAmount >= amount, "Releasable amount exceeded");
         
-        _token.safeTransfer(beneficiaryPayable, amount);
+        uint256 amount2 = _computeReleasableAmount(vestingSchedule);
+        require(amount2 > 0, "zero releasable amount!");
+        vestingSchedule.released = vestingSchedule.released + amount2;
+        address beneficiaryPayable = vestingSchedule.beneficiary;
+        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount2;
+        
+        _token.safeTransfer(beneficiaryPayable, amount2);
 
         return true;
     }
