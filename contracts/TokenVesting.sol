@@ -306,17 +306,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
         bool isOwner = msg.sender == owner();
         require(isBeneficiary || isOwner, "only beneficiary and owner!");
-
-        /*
-        uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
-        require(vestedAmount >= amount, "Releasable amount exceeded");
-        vestingSchedule.released = vestingSchedule.released + amount;
-        address beneficiaryPayable = vestingSchedule.beneficiary;
-        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
-        */
-        //uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
-        //require(vestedAmount >= amount, "Releasable amount exceeded");
-        
+       
         uint256 amount2 = _computeReleasableAmount(vestingSchedule);
         require(amount2 > 0, "zero releasable amount!");
         vestingSchedule.released = vestingSchedule.released + amount2;
