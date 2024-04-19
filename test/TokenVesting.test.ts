@@ -22,6 +22,7 @@ const ETHER_50 = ethers.utils.parseEther("50");
 const ETHER_100 = ethers.utils.parseEther("100");
 const ETHER_150 = ethers.utils.parseEther("150");
 const ETHER_200 = ethers.utils.parseEther("200");
+const ETHER_300 = ethers.utils.parseEther("300");
 const ETHER_350 = ethers.utils.parseEther("350");
 const ETHER_400 = ethers.utils.parseEther("400");
 const ETHER_500 = ethers.utils.parseEther("500");
@@ -399,7 +400,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -416,7 +417,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(owner).release(vestingScheduleId, ETHER_200))
+            await expect(vesting.connect(owner).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -434,28 +435,27 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(accounts[10]).release(vestingScheduleId, ETHER_100))
+            await expect(vesting.connect(accounts[10]).release(vestingScheduleId))
                 .to.be.revertedWith("only beneficiary and owner!");
 
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
         });
 
-        it("Should allow the investor to release part of the tokens", async () => {
+        it("Should allow the investor to release all of its tokens", async () => {
             const {owner, vesting, investor, token} = await loadFixture(deployContracts);
-            const accounts = await ethers.getSigners();
-
+            
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(owner).release(vestingScheduleId, ETHER_10))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
-                    [ETHER_10]
+                    [ETHER_200]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_10);
-            expect(await token.balanceOf(vesting.address)).to.be.equal(ethers.utils.parseEther('390'));
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_200);
         });
 
         it("Should not be able to release more than once", async () => {
@@ -464,37 +464,15 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
                     [ETHER_200]
                 );
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
-                .to.be.rejectedWith("Releasable amount exceeded");
-
-            await expect(vesting.connect(investor).release(vestingScheduleId, 1))
-                .to.be.rejectedWith("Releasable amount exceeded");
-        });
-
-        it("Should not be able to release more than vested even in parts", async () => {
-            const {owner, vesting, investor, token} = await loadFixture(deployContracts);
-
-            const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
-            await vesting.setCurrentTime(startTime + FOUR_MONTHS);
-
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_100))
-                .to.changeTokenBalances(
-                    token,
-                    [investor],
-                    [ETHER_100]
-                );
-
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_200))
-                .to.be.rejectedWith("Releasable amount exceeded");
-
-            expect(await vesting.computeReleasableAmount(vestingScheduleId)).to.be.equal(ETHER_100);
+            await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.be.rejectedWith("zero releasable amount!");
         });
 
         // Should not be able to release if revoked even after period ends.
@@ -506,7 +484,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(owner).release(vestingScheduleId, ETHER_200))
+            await expect(vesting.connect(owner).release(vestingScheduleId))
                 .to.be.revertedWith("vesting schedule revoked!");
 
             expect(await token.balanceOf(investorRevokable.address)).to.be.equal(ZERO);
@@ -576,7 +554,7 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId_1 = await vesting.getVestingIdAtIndex(1);
             await vesting.setCurrentTime(startTime + THREE_MONTHS);
 
-            await expect(vesting.connect(investor1).release(vestingScheduleId_1, ETHER_200))
+            await expect(vesting.connect(investor1).release(vestingScheduleId_1))
                 .to.changeTokenBalances(
                     token,
                     [investor1],
@@ -587,7 +565,7 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId_2 = await vesting.getVestingIdAtIndex(2);
             await vesting.setCurrentTime(startTime + FOUR_MONTHS);
 
-            await expect(vesting.connect(investor2).release(vestingScheduleId_2, ETHER_500))
+            await expect(vesting.connect(investor2).release(vestingScheduleId_2))
                 .to.changeTokenBalances(
                     token,
                     [investor2],
@@ -597,7 +575,7 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId_3 = await vesting.getVestingIdAtIndex(3);
             await vesting.setCurrentTime(startTime + FIVE_MONTHS);
 
-             await expect(vesting.connect(investor3).release(vestingScheduleId_3, ETHER_1000))
+             await expect(vesting.connect(investor3).release(vestingScheduleId_3))
                 .to.changeTokenBalances(
                     token,
                     [investor3],
@@ -607,7 +585,7 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId_4 = await vesting.getVestingIdAtIndex(4);
             await vesting.setCurrentTime(startTime + SIX_MONTHS);
 
-             await expect(vesting.connect(investor4).release(vestingScheduleId_4, ETHER_100))
+             await expect(vesting.connect(investor4).release(vestingScheduleId_4))
                 .to.changeTokenBalances(
                     token,
                     [investor4],
@@ -636,8 +614,8 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             await vesting.setCurrentTime(startTime + MONTH - 1);
             
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.revertedWith("Releasable amount exceeded");
+            await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.be.revertedWith("zero releasable amount!");
                 
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
@@ -660,7 +638,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -678,7 +656,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(owner).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(owner).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -689,42 +667,39 @@ describe("Vesting Contract Testing", () => {
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_350);
         });
 
-        it("Should allow the investor to release part of the tokens", async () => {
+        it("Should allow the investor to release all pending tokens ", async () => {
             const {owner, vesting, investor, token} = await loadFixture(deployContracts);
             const accounts = await ethers.getSigners();
 
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
-            await vesting.setCurrentTime(startTime + MONTH);
+            await vesting.setCurrentTime(startTime + (2 * MONTH));
 
-            await expect(vesting.connect(owner).release(vestingScheduleId, ETHER_10))
+            await expect(vesting.connect(owner).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
-                    [ETHER_10]
+                    [ETHER_100]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_10);
-            expect(await token.balanceOf(vesting.address)).to.be.equal(ethers.utils.parseEther('390'));
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_100);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_300);
         });
 
         it("Should not be able to release more than once after cliff ends", async () => {
             const {owner, vesting, investor, token} = await loadFixture(deployContracts);
 
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
-            await vesting.setCurrentTime(startTime + MONTH);
+            await vesting.setCurrentTime(startTime + (2 * MONTH));
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
-                    [ETHER_50]
+                    [ETHER_100]
                 );
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.rejectedWith("Releasable amount exceeded");
-
-            await expect(vesting.connect(investor).release(vestingScheduleId, 1))
-                .to.be.rejectedWith("Releasable amount exceeded");
+            await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.be.rejectedWith("zero releasable amount!");
         });
 
         it("Should not allow other accouts to claim a portion of tokens on behalf the investor", async () => {
@@ -735,7 +710,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(accounts[10]).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(accounts[10]).release(vestingScheduleId))
                 .to.be.revertedWith("only beneficiary and owner!");
 
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
@@ -748,21 +723,30 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_10))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
-                    [ETHER_10]
+                    [ETHER_50]
                 );
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
-                .to.be.rejectedWith("Releasable amount exceeded");
+            await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.be.rejectedWith("zero releasable amount");
+
+            await vesting.setCurrentTime(startTime + (2 * MONTH));
 
             expect(await vesting.computeReleasableAmount(vestingScheduleId))
-                .to.be.equal(ethers.utils.parseEther('40'));
+                .to.be.equal(ETHER_50);
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_10);
-            expect(await token.balanceOf(vesting.address)).to.be.equal(ethers.utils.parseEther('390'));
+            await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [ETHER_50]
+                );
+
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_100);
+            expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_300);
         });
 
         it("Should not be able to release if revoked even after cliff ends.", async () => {
@@ -773,7 +757,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.be.revertedWith("vesting schedule revoked!");
 
             expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
@@ -811,7 +795,7 @@ describe("Vesting Contract Testing", () => {
 
             const amount = ethers.BigNumber.from(ETHER_200).mul(MONTH + DAY).div(FOUR_MONTHS);
             
-             await expect(vesting.connect(investor).release(vestingScheduleId, amount))
+             await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -829,18 +813,17 @@ describe("Vesting Contract Testing", () => {
             const vestingScheduleId = await vesting.getVestingIdAtIndex(0);
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
                     [ETHER_50]
                 );
 
-
             const amount = ethers.BigNumber.from(ETHER_200).mul(DAY).div(FOUR_MONTHS);
             
             await vesting.setCurrentTime(startTime + MONTH + DAY);
-            await expect(vesting.connect(investor).release(vestingScheduleId, amount))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -860,7 +843,7 @@ describe("Vesting Contract Testing", () => {
 
             await vesting.setCurrentTime(startTime + MONTH);
 
-            await expect(vesting.connect(investor).release(vestingScheduleId, ETHER_50))
+            await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
@@ -874,7 +857,7 @@ describe("Vesting Contract Testing", () => {
                 await vesting.setCurrentTime(startTime + MONTH + i * DAY);
                 const dailyAmount = await vesting.computeReleasableAmount(vestingScheduleId);
 
-                await expect(vesting.connect(investor).release(vestingScheduleId, dailyAmount))
+                await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.changeTokenBalances(
                     token,
                     [investor],
