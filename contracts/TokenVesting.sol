@@ -307,13 +307,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         bool isOwner = msg.sender == owner();
         require(isBeneficiary || isOwner, "only beneficiary and owner!");
        
-        uint256 amount2 = _computeReleasableAmount(vestingSchedule);
-        require(amount2 > 0, "zero releasable amount!");
-        vestingSchedule.released = vestingSchedule.released + amount2;
+        uint256 amount = _computeReleasableAmount(vestingSchedule);
+        require(amount > 0, "zero releasable amount!");
+        vestingSchedule.released = vestingSchedule.released + amount;
         address beneficiaryPayable = vestingSchedule.beneficiary;
-        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount2;
+        vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
         
-        _token.safeTransfer(beneficiaryPayable, amount2);
+        _token.safeTransfer(beneficiaryPayable, amount);
 
         return true;
     }
