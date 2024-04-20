@@ -104,7 +104,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         uint256 _cliff,
         uint256 _duration,
         bool _revocable
-    ) external returns (bool status) {
+    ) external nonReentrant returns (bool status) {
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
         bytes32 leaf = keccak256(
@@ -144,37 +144,6 @@ contract TokenVesting is Ownable, ReentrancyGuard {
 
         require(status, "Scheduled failed!");
     }
-
-    /*function whitelistClaim(
-        bytes32[] calldata _merkleProof,
-        uint256 _amount,
-        uint256 _cliff,
-        uint256 _duration,
-        bool _revocable
-    ) external returns (bool status) {
-        require(!whitelistClaimed[msg.sender], "Address already claimed!");
-        whitelistClaimed[msg.sender] = true;
-
-        bytes32 leaf = keccak256(
-            abi.encode(msg.sender, _amount, _cliff, _duration, block.chainid, _revocable)
-        );
-
-        require(
-            MerkleProof.verify(_merkleProof, MERKLE_ROOT, leaf),
-            "invalid proof"
-        );
-
-        status = _createVestingSchedule(
-            msg.sender,         // Beneficiary
-            getCurrentTime(),   // Vesting schedule start
-            _cliff,             // Cliff period
-            _duration,          // Total duration
-            ONE_DAY,            // Slice period in secodns: 1 day
-            _revocable,         // Vesting schedule can be revocable
-            _amount             // Total amount to distribute
-        );
-        require(status, "Scheduled failed!");
-    } */
 
     /**
      * @dev Returns the number of vesting schedules associated to a beneficiary.
