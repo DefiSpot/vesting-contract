@@ -15,7 +15,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     uint256 public constant ONE_DAY = 1 days;
 
     bytes32 public constant MERKLE_ROOT =
-        0xd1ea4d6fdd36239cf47a0fb25a7726dbe9e20202a83e1e59ed020b0ecbe24a30;
+        0x7e8cc095ec32f3dcacb3c6338f19ca9e7f7c29254e001d497f3dab9f6a8717e9;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule {
@@ -97,18 +97,26 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         _token = IERC20(token_);
     }
 
-    function whitelistClaim(
+     function whitelistClaim(
         bytes32[] calldata _merkleProof,
-        uint256 _amount,
+        uint256 _vestedAmount,
+        uint256 _initialAmount,
         uint256 _cliff,
         uint256 _duration,
         bool _revocable
-    ) external returns (bool status) {
+    ) external nonReentrant returns (bool status) {
         require(!whitelistClaimed[msg.sender], "Address already claimed!");
         whitelistClaimed[msg.sender] = true;
-
         bytes32 leaf = keccak256(
-            abi.encode(msg.sender, _amount, _cliff, _duration, block.chainid, _revocable)
+            abi.encode(
+                msg.sender,
+                _vestedAmount,
+                _initialAmount,
+                _cliff,
+                _duration,
+                block.chainid,
+                _revocable
+            )
         );
 
         require(
@@ -116,15 +124,24 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             "invalid proof"
         );
 
+        if (_initialAmount > 0) {
+            require(
+                IDefispotToken(address(_token)).mint(_initialAmount),
+                "mint failed!"
+            );
+            _token.safeTransfer(msg.sender, _initialAmount);
+        }
+
         status = _createVestingSchedule(
-            msg.sender,         // Beneficiary
-            getCurrentTime(),   // Vesting schedule start
-            _cliff,             // Cliff period
-            _duration,          // Total duration
-            ONE_DAY,            // Slice period in secodns: 1 day
-            _revocable,         // Vesting schedule can be revocable
-            _amount             // Total amount to distribute
+            msg.sender, // Beneficiary
+            getCurrentTime(), // Vesting schedule start
+            _cliff, // Cliff period
+            _duration, // Total duration
+            ONE_DAY, // Slice period in secodns: 1 day
+            _revocable, // Vesting schedule can be revocable
+            _vestedAmount // Total amount to distribute
         );
+
         require(status, "Scheduled failed!");
     }
 

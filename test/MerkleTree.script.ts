@@ -22,6 +22,8 @@ const YEAR = 12 * MONTH;
 
 const ONE_ETHER = ethers.utils.parseEther("1");
 const ETHER_10 = ethers.utils.parseEther("10");
+const ETHER_20 = ethers.utils.parseEther("20");
+const ETHER_50 = ethers.utils.parseEther("50");
 const ETHER_100 = ethers.utils.parseEther("100");
 const ETHER_200 = ethers.utils.parseEther("200");
 const ETHER_500 = ethers.utils.parseEther("500");
@@ -34,15 +36,15 @@ async function deployContracts() {
     const chainId = chainObj.chainId;
 
     const whitelistAddresses = [
-      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS, chainId, true],
-      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS, chainId, true],
-      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS, chainId, false],
-      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS, chainId, false],
-      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH, chainId, false],
-      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH, chainId, false],
-      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId, false]
+      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10,   ONE_ETHER, MONTH, SIX_MONTHS,   chainId, true],
+      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200,  ETHER_20,  MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200,  ETHER_20,  MONTH, THREE_MONTHS, chainId, true],
+      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500,  ZERO,      MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, ETHER_100, MONTH, FIVE_MONTHS,  chainId, false],
+      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100,  ETHER_10,  MONTH, SIX_MONTHS,   chainId, false],
+      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100,  ETHER_10,  MONTH, 7 * MONTH,    chainId, false],
+      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200,  ETHER_20,  MONTH, 8 * MONTH,    chainId, false],
+      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500,  ETHER_50,  MONTH, 9 * MONTH,    chainId, false]
     ]
 
     const Token = await ethers.getContractFactory("DefispotToken");
@@ -74,9 +76,11 @@ describe("Vesting Contract Testing", () => {
           console.log(addr[3]);
           console.log(addr[4]);
           console.log(addr[5]);
+          console.log(addr[6]);
+
           let params = abi.encode(
-            ["address","uint256","uint256","uint256","uint256", "bool"],
-            [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5]]); 
+            ["address","uint256","uint256","uint256","uint256","uint256", "bool"],
+            [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5],addr[6]]); 
 
           return ethers.utils.keccak256(params);            
         }
@@ -95,8 +99,8 @@ describe("Vesting Contract Testing", () => {
 
       console.log("leaf address: ", leaf.address);
       let params2 = abi.encode(
-            ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-            [leaf.address,ETHER_200,MONTH,FOUR_MONTHS,chainId,false]);
+            ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+            [leaf.address,ETHER_200,ETHER_20,MONTH,FOUR_MONTHS,chainId,false]);
       
       // Leaf hash:
       console.log("Leaf hash: \n", ethers.utils.keccak256(params2));
@@ -104,11 +108,11 @@ describe("Vesting Contract Testing", () => {
       const hexProof = merkleTree.getHexProof(
           ethers.utils.keccak256(params2)
       );
-      // Hex proof
+      
       console.log("HexProof: ", hexProof);
 
-      await expect(vesting.connect(leaf).whitelistClaim(hexProof,ETHER_200, MONTH, FOUR_MONTHS, false)).not.to.be.reverted;
-      await expect(vesting.connect(notLeaf).whitelistClaim(hexProof, ETHER_200, MONTH, FOUR_MONTHS, true)).to.be.reverted;
+      await expect(vesting.connect(leaf).whitelistClaim(hexProof, ETHER_200, ETHER_20, MONTH, FOUR_MONTHS, false)).not.to.be.reverted;
+      await expect(vesting.connect(notLeaf).whitelistClaim(hexProof, ETHER_200, ETHER_20, MONTH, FOUR_MONTHS, true)).to.be.reverted;
     })
   });
 });

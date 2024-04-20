@@ -18,44 +18,35 @@ const startTime = 150;
 
 const ONE_ETHER = ethers.utils.parseEther("1");
 const ETHER_10 = ethers.utils.parseEther("10");
+const ETHER_20 = ethers.utils.parseEther("20");
 const ETHER_50 = ethers.utils.parseEther("50");
 const ETHER_100 = ethers.utils.parseEther("100");
 const ETHER_150 = ethers.utils.parseEther("150");
 const ETHER_200 = ethers.utils.parseEther("200");
 const ETHER_300 = ethers.utils.parseEther("300");
+const ETHER_320 = ethers.utils.parseEther("320");
 const ETHER_500 = ethers.utils.parseEther("500");
 const ETHER_1000 = ethers.utils.parseEther("1000");
 
 const initialSupply = ETHER_100;
 
-// [investor account, amount, period (in secodns), cliff (in second)]
-/*const whitelistAddresses = [
-    ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS],
-    ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS],
-    ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS],
-    ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS],
-    ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS],
-    ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS],
-    ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH],
-    ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH],
-    ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH]
-] */
 const abi = ethers.utils.defaultAbiCoder;
 
 async function deployContracts() {
     const chainObj = await ethers.provider.getNetwork();
     const chainId = chainObj.chainId;
     // [investor account, amount, period (in secodns), cliff (in second), chainId]
+    // [investor account, vested_amount, initial_amount, period (in secodns), cliff (in second), chainId,revokable]
     const whitelistAddresses = [
-      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS, chainId, true],
-      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS, chainId, true],
-      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS, chainId, false],
-      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS, chainId, false],
-      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH, chainId, false],
-      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH, chainId, false],
-      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId, false]
+      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10,   ONE_ETHER, MONTH, SIX_MONTHS,   chainId, true],
+      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200,  ETHER_20,  MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200,  ETHER_20,  MONTH, THREE_MONTHS, chainId, true],
+      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500,  ZERO,      MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, ETHER_100, MONTH, FIVE_MONTHS,  chainId, false],
+      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100,  ETHER_10,  MONTH, SIX_MONTHS,   chainId, false],
+      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100,  ETHER_10,  MONTH, 7 * MONTH,    chainId, false],
+      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200,  ETHER_20,  MONTH, 8 * MONTH,    chainId, false],
+      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500,  ETHER_50,  MONTH, 9 * MONTH,    chainId, false]
     ]
 
     const [owner, investor, notInvestor] = await ethers.getSigners();
@@ -70,8 +61,9 @@ async function deployContracts() {
 
     const leafNodes = whitelistAddresses.map(addr => {
         let params = abi.encode(
-          ["address","uint256","uint256","uint256","uint256","bool"],
-          [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5]]);
+            ["address","uint256","uint256","uint256","uint256","uint256","bool"],
+            [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5],addr[6]]
+        );
 
         return ethers.utils.keccak256(params);            
       }
@@ -79,8 +71,9 @@ async function deployContracts() {
 
     // Get valid parameters.
     const params = abi.encode(
-        ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-        [investor.address,ETHER_200,MONTH,FOUR_MONTHS,chainId,false]);
+        ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+        [investor.address,ETHER_200,ETHER_20,MONTH,FOUR_MONTHS,chainId,false]
+    );
     
     const merkleTree = new MerkleTree(leafNodes, ethers.utils.keccak256, {sortPairs: true});
     
@@ -92,7 +85,7 @@ async function deployContracts() {
     await vesting.setCurrentTime(startTime);
 
     await expect(vesting.connect(investor).whitelistClaim(
-          hexProof,ETHER_200, MONTH,FOUR_MONTHS, false
+          hexProof,ETHER_200,ETHER_20, MONTH,FOUR_MONTHS, false
     )).not.to.be.reverted;
 
     expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
@@ -101,13 +94,14 @@ async function deployContracts() {
 }
 
 describe("Vesting Contract Create Vesting Schedule Testing", () => {
-    it("Should assign the total supply of tokens to the owner", async function () {
+    it("Should update the total supply of tokens", async function () {
         const {vesting, token, owner} = await loadFixture(deployContracts)
 
         const ownerBalance = await token.balanceOf(owner.address);
         expect(ownerBalance).to.be.equal(ETHER_100);
         expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_200);
-        expect(await token.totalSupply()).to.be.equal(ETHER_300);
+
+        expect(await token.totalSupply()).to.be.equal(ETHER_320);
     });
 
     it("should get the same token adddress", async () => {
@@ -165,6 +159,48 @@ describe("Vesting Contract Create Vesting Schedule Testing", () => {
         expect(await vesting.getVestingSchedulesCountByBeneficiary(investor.address)).to.be.equal(2);
     });
 
+    it("should allow to create a second schedule for immediate release", async () => {
+        const {vesting, investor,token} = await loadFixture(deployContracts);
+        
+        const beneficiary = investor.address;
+        const cliff = 0;
+        const duration = 1;
+        const slicePeriodSeconds = 1;
+        const revokable = true;
+        const amount = ETHER_300;
+
+        // create new vesting schedule
+        await expect(vesting.createVestingSchedule(
+            beneficiary,
+            cliff,
+            duration,
+            slicePeriodSeconds,
+            revokable,
+            amount
+        )).not.to.be.reverted;
+
+        
+        expect(await vesting.getVestingSchedulesCount()).to.be.equal(2);
+        expect(await vesting.getVestingSchedulesTotalAmount()).to.be.equal(ETHER_500);
+        expect(await vesting.getVestingSchedulesCountByBeneficiary(investor.address)).to.be.equal(2);
+
+        await vesting.setCurrentTime(startTime + 1);
+
+        const vestingScheduleId = await vesting.computeVestingScheduleIdForAddressAndIndex(
+            investor.address,
+            1
+        );
+
+        await expect(vesting.connect(investor).release(vestingScheduleId))
+                .to.changeTokenBalances(
+                    token,
+                    [investor],
+                    [ETHER_300]
+                )
+
+        expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_320);
+    });
+
     it("should validate that period is equal or greater than cliff", async () => {
         const {vesting, investor} = await loadFixture(deployContracts);
         
@@ -184,7 +220,6 @@ describe("Vesting Contract Create Vesting Schedule Testing", () => {
             revokable,
             amount
         )).to.be.revertedWith("duration is not valid!")
-
         
         expect(await vesting.getVestingSchedulesCount()).to.be.equal(1);
         expect(await vesting.getVestingSchedulesTotalAmount()).to.be.equal(ETHER_200);

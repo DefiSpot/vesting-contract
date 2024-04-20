@@ -18,10 +18,12 @@ const startTime = 150;
 
 const ONE_ETHER = ethers.utils.parseEther("1");
 const ETHER_10 = ethers.utils.parseEther("10");
+const ETHER_20 = ethers.utils.parseEther("20");
 const ETHER_50 = ethers.utils.parseEther("50");
 const ETHER_100 = ethers.utils.parseEther("100");
 const ETHER_150 = ethers.utils.parseEther("150");
 const ETHER_200 = ethers.utils.parseEther("200");
+const ETHER_220 = ethers.utils.parseEther("220");
 const ETHER_300 = ethers.utils.parseEther("300");
 const ETHER_350 = ethers.utils.parseEther("350");
 const ETHER_400 = ethers.utils.parseEther("400");
@@ -35,17 +37,17 @@ const abi = ethers.utils.defaultAbiCoder;
 async function deployContracts() {
     const chainObj = await ethers.provider.getNetwork();
     const chainId = chainObj.chainId;
-    // [investor account, amount, period (in secodns), cliff (in second), chainId,revokable]
-    const whitelistAddresses = [
-      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10, MONTH, SIX_MONTHS, chainId, true],
-      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200, MONTH, THREE_MONTHS, chainId, true],
-      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500, MONTH, FOUR_MONTHS, chainId, false],
-      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, MONTH, FIVE_MONTHS, chainId, false],
-      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100, MONTH, SIX_MONTHS, chainId, false],
-      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100, MONTH, 7 * MONTH, chainId, false],
-      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200, MONTH, 8 * MONTH, chainId, false],
-      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500, MONTH, 9 * MONTH, chainId, false]
+    // [investor account, vested_amount, initial_amount, period (in secodns), cliff (in second), chainId,revokable]
+      const whitelistAddresses = [
+      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',ETHER_10,   ONE_ETHER, MONTH, SIX_MONTHS,   chainId, true],
+      ['0x70997970C51812dc3A010C7d01b50e0d17dc79C8',ETHER_200,  ETHER_20,  MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',ETHER_200,  ETHER_20,  MONTH, THREE_MONTHS, chainId, true],
+      ['0x90F79bf6EB2c4f870365E785982E1f101E93b906',ETHER_500,  ZERO,      MONTH, FOUR_MONTHS,  chainId, false],
+      ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',ETHER_1000, ETHER_100, MONTH, FIVE_MONTHS,  chainId, false],
+      ['0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',ETHER_100,  ETHER_10,  MONTH, SIX_MONTHS,   chainId, false],
+      ['0x976EA74026E726554dB657fA54763abd0C3a0aa9',ETHER_100,  ETHER_10,  MONTH, 7 * MONTH,    chainId, false],
+      ['0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',ETHER_200,  ETHER_20,  MONTH, 8 * MONTH,    chainId, false],
+      ['0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',ETHER_500,  ETHER_50,  MONTH, 9 * MONTH,    chainId, false]
     ]
     
     const [owner, investor, investorRevokable] = await ethers.getSigners();
@@ -60,8 +62,8 @@ async function deployContracts() {
 
     const leafNodes = whitelistAddresses.map(addr => {
         let params = abi.encode(
-          ["address","uint256","uint256","uint256","uint256","bool"],
-          [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5]]);
+          ["address","uint256","uint256","uint256","uint256","uint256","bool"],
+          [addr[0].toString(),addr[1],addr[2],addr[3],addr[4],addr[5],addr[6]]);
 
         return ethers.utils.keccak256(params);            
       }
@@ -69,8 +71,8 @@ async function deployContracts() {
 
     // Get valid parameters.
     const params = abi.encode(
-        ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-        [investor.address,ETHER_200,MONTH,FOUR_MONTHS,chainId,false]);
+        ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+        [investor.address,ETHER_200,ETHER_20,MONTH,FOUR_MONTHS,chainId,false]);
     
     const merkleTree = new MerkleTree(leafNodes, ethers.utils.keccak256, {sortPairs: true});
     
@@ -83,14 +85,14 @@ async function deployContracts() {
 
     // Validate correct information
       await expect(vesting.connect(investor).whitelistClaim(
-          hexProof,ETHER_200, MONTH,FOUR_MONTHS, false
+          hexProof,ETHER_200, ETHER_20, MONTH,FOUR_MONTHS, false
       )).not.to.be.reverted;   
 
     expect(await vesting.whitelistClaimed(investor.address)).to.be.equal(true);
 
     const params2 = abi.encode(
-                ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                [investorRevokable.address,ETHER_200,MONTH,THREE_MONTHS,chainId,true]);
+                ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                [investorRevokable.address,ETHER_200,ETHER_20,MONTH,THREE_MONTHS,chainId,true]);
     
     // Compute merkle tree branch
     const hexProof2 = merkleTree.getHexProof(
@@ -98,7 +100,7 @@ async function deployContracts() {
     );
     
     await expect(vesting.connect(investorRevokable).whitelistClaim(
-            hexProof2, ETHER_200, MONTH,THREE_MONTHS, true
+            hexProof2, ETHER_200, ETHER_20, MONTH,THREE_MONTHS, true
         )).not.to.be.reverted;
 
     await vesting.setCurrentTime(startTime);
@@ -155,8 +157,8 @@ describe("Vesting Contract Testing", () => {
             const chainId = chainObj.chainId;
             
             const params2 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor2.address,ETHER_500,MONTH,FOUR_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor2.address,ETHER_500,ZERO,MONTH,FOUR_MONTHS,chainId,false]);
                         
             const hexProof2 = merkleTree.getHexProof(
                 ethers.utils.keccak256(params2)
@@ -168,7 +170,7 @@ describe("Vesting Contract Testing", () => {
 
             let nextId = await vesting.computeNextVestingScheduleIdForHolder(investor2.address)
             await expect(vesting.connect(investor2).whitelistClaim(
-                    hexProof2, ETHER_500, MONTH, FOUR_MONTHS, false
+                    hexProof2, ETHER_500, ZERO, MONTH, FOUR_MONTHS, false
                 ))
                 .to.emit(vesting, "LogNewVestingSchedule")
                 .withArgs(investor2.address, investor2.address, nextId, 1);
@@ -189,28 +191,19 @@ describe("Vesting Contract Testing", () => {
             
             const chainObj = await ethers.provider.getNetwork();
             const chainId = chainObj.chainId;
-            // correct amount to claim
-            /*const params1 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor1.address,ETHER_200,MONTH,THREE_MONTHS,chainId,true]); */
 
             const params2 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor2.address,ETHER_500,MONTH,FOUR_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor2.address,ETHER_500,ZERO,MONTH,FOUR_MONTHS,chainId,false]);
 
             const params3 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor3.address,ETHER_1000,MONTH,FIVE_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor3.address,ETHER_1000,ETHER_100,MONTH,FIVE_MONTHS,chainId,false]);
 
             const params4 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor4.address,ETHER_100,MONTH,SIX_MONTHS,chainId,false]);
-        
-            // Compute merkle tree branch for all investors
-            /*const hexProof1 = merkleTree.getHexProof(
-                ethers.utils.keccak256(params1)
-            ); */
-
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor4.address,ETHER_100,ETHER_10,MONTH,SIX_MONTHS,chainId,false]);
+ 
             const hexProof2 = merkleTree.getHexProof(
                 ethers.utils.keccak256(params2)
             );
@@ -223,17 +216,13 @@ describe("Vesting Contract Testing", () => {
                 ethers.utils.keccak256(params4)
             );
 
-            // Claiming tokens for several investors
-            /*await expect(vesting.connect(investor1).whitelistClaim(
-                hexProof1, ETHER_200, MONTH, THREE_MONTHS, true
-            )).not.to.be.reverted; */
 
             expect(await vesting.getVestingSchedulesCount()).to.be.equal(2);
             expect(await vesting.getVestingSchedulesTotalAmount()).to.be.equal(ethers.utils.parseEther("400"));
             expect(await vesting.getVestingSchedulesCountByBeneficiary(investor1.address)).to.be.equal(1);
 
             await expect(vesting.connect(investor2).whitelistClaim(
-                hexProof2, ETHER_500, MONTH, FOUR_MONTHS, false
+                hexProof2, ETHER_500, ZERO, MONTH, FOUR_MONTHS, false
             )).not.to.be.reverted;
 
             expect(await vesting.getVestingSchedulesCount()).to.be.equal(3);
@@ -241,7 +230,7 @@ describe("Vesting Contract Testing", () => {
             expect(await vesting.getVestingSchedulesCountByBeneficiary(investor2.address)).to.be.equal(1);
 
             await expect(vesting.connect(investor3).whitelistClaim(
-                hexProof3, ETHER_1000, MONTH, FIVE_MONTHS, false
+                hexProof3, ETHER_1000, ETHER_100, MONTH, FIVE_MONTHS, false
             )).not.to.be.reverted;
 
             expect(await vesting.getVestingSchedulesCount()).to.be.equal(4);
@@ -249,7 +238,7 @@ describe("Vesting Contract Testing", () => {
             expect(await vesting.getVestingSchedulesCountByBeneficiary(investor3.address)).to.be.equal(1);
 
             await expect(vesting.connect(investor4).whitelistClaim(
-                hexProof4, ETHER_100, MONTH, SIX_MONTHS, false
+                hexProof4, ETHER_100, ETHER_10, MONTH, SIX_MONTHS, false
             )).not.to.be.reverted;
 
             expect(await vesting.getVestingSchedulesCount()).to.be.equal(5);
@@ -407,7 +396,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_200]
                 )
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_220);
         });
 
         it("Should allow the contract owner to claim all tokens on behalf the investor", async () => {
@@ -424,7 +413,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_200]
                 )
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_220);
         });
 
         it("Should not allow other accouts to claim all tokens on behalf the investor", async () => {
@@ -438,7 +427,7 @@ describe("Vesting Contract Testing", () => {
             await expect(vesting.connect(accounts[10]).release(vestingScheduleId))
                 .to.be.revertedWith("only beneficiary and owner!");
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_20);
         });
 
         it("Should allow the investor to release all of its tokens", async () => {
@@ -454,7 +443,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_200]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_220);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_200);
         });
 
@@ -487,7 +476,7 @@ describe("Vesting Contract Testing", () => {
             await expect(vesting.connect(owner).release(vestingScheduleId))
                 .to.be.revertedWith("vesting schedule revoked!");
 
-            expect(await token.balanceOf(investorRevokable.address)).to.be.equal(ZERO);
+            expect(await token.balanceOf(investorRevokable.address)).to.be.equal(ETHER_20);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
         });
 
@@ -498,22 +487,17 @@ describe("Vesting Contract Testing", () => {
             const chainObj = await ethers.provider.getNetwork();
             const chainId = chainObj.chainId;
 
-            // correct amount to claim
-            /*const params1 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor1.address,ETHER_200,MONTH,THREE_MONTHS,chainId,false]);*/
-
             const params2 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor2.address,ETHER_500,MONTH,FOUR_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor2.address,ETHER_500,ZERO,MONTH,FOUR_MONTHS,chainId,false]);
 
             const params3 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor3.address,ETHER_1000,MONTH,FIVE_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor3.address,ETHER_1000,ETHER_100,MONTH,FIVE_MONTHS,chainId,false]);
 
             const params4 = abi.encode(
-                    ["address","uint256","uint256","uint256","uint256","bool"], // encode as address array
-                    [investor4.address,ETHER_100,MONTH,SIX_MONTHS,chainId,false]);
+                    ["address","uint256","uint256","uint256","uint256","uint256","bool"], // encode as address array
+                    [investor4.address,ETHER_100,ETHER_10,MONTH,SIX_MONTHS,chainId,false]);
         
             // Compute merkle tree branch for all investors
             /*const hexProof1 = merkleTree.getHexProof(
@@ -538,16 +522,16 @@ describe("Vesting Contract Testing", () => {
             )).not.to.be.reverted;*/
 
             await expect(vesting.connect(investor2).whitelistClaim(
-                hexProof2, ETHER_500, MONTH, FOUR_MONTHS, false
+                hexProof2, ETHER_500, ZERO, MONTH, FOUR_MONTHS, false
             )).not.to.be.reverted;
 
             await expect(vesting.connect(investor3).whitelistClaim(
-                hexProof3, ETHER_1000, MONTH, FIVE_MONTHS, false
+                hexProof3, ETHER_1000, ETHER_100,MONTH, FIVE_MONTHS, false
             )).not.to.be.reverted;
 
 
             await expect(vesting.connect(investor4).whitelistClaim(
-                hexProof4, ETHER_100, MONTH, SIX_MONTHS, false
+                hexProof4, ETHER_100, ETHER_10,MONTH, SIX_MONTHS, false
             )).not.to.be.reverted;
 
 
@@ -617,7 +601,7 @@ describe("Vesting Contract Testing", () => {
             await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.be.revertedWith("zero releasable amount!");
                 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_20);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
         });
 
@@ -645,7 +629,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_50]
                 )
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_50);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ethers.utils.parseEther('70'));
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_350);
         });
 
@@ -663,7 +647,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_50]
                 )
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_50);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ethers.utils.parseEther('70'));
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_350);
         });
 
@@ -681,7 +665,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_100]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_100);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ethers.utils.parseEther('120'));
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_300);
         });
 
@@ -713,7 +697,7 @@ describe("Vesting Contract Testing", () => {
             await expect(vesting.connect(accounts[10]).release(vestingScheduleId))
                 .to.be.revertedWith("only beneficiary and owner!");
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_20);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
         });
 
@@ -745,7 +729,7 @@ describe("Vesting Contract Testing", () => {
                     [ETHER_50]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_100);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ethers.utils.parseEther('120'));
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_300);
         });
 
@@ -760,7 +744,7 @@ describe("Vesting Contract Testing", () => {
             await expect(vesting.connect(investor).release(vestingScheduleId))
                 .to.be.revertedWith("vesting schedule revoked!");
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(ZERO);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_20);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400);
         });
 
@@ -781,7 +765,7 @@ describe("Vesting Contract Testing", () => {
                     [amount]
                 );
 
-            expect(await token.balanceOf(investorRevokable.address)).to.be.equal(amount);
+            expect(await token.balanceOf(investorRevokable.address)).to.be.equal(amount.add(ETHER_20));
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_400.sub(amount));
         });
     });
@@ -802,7 +786,7 @@ describe("Vesting Contract Testing", () => {
                     [amount]
                 );
 
-            expect(await token.balanceOf(investor.address)).to.be.equal(amount);
+            expect(await token.balanceOf(investor.address)).to.be.equal(amount.add(ETHER_20));
             const remainVestedAmount = ethers.BigNumber.from(ETHER_400).sub(amount);
             expect(await token.balanceOf(vesting.address)).to.be.equal(remainVestedAmount);
 
@@ -830,7 +814,7 @@ describe("Vesting Contract Testing", () => {
                     [amount]
                 );
             const totalAmount = ethers.BigNumber.from(ETHER_50).add(amount)
-            expect(await token.balanceOf(investor.address)).to.be.equal(totalAmount);
+            expect(await token.balanceOf(investor.address)).to.be.equal(totalAmount.add(ETHER_20));
 
             const remainVestedAmount = ethers.BigNumber.from(ETHER_400).sub(totalAmount);
             expect(await token.balanceOf(vesting.address)).to.be.equal(remainVestedAmount);
@@ -865,7 +849,7 @@ describe("Vesting Contract Testing", () => {
                 );
             }
             
-            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_200);
+            expect(await token.balanceOf(investor.address)).to.be.equal(ETHER_220);
             expect(await token.balanceOf(vesting.address)).to.be.equal(ETHER_200);
         });
     });
