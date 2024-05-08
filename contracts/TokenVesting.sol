@@ -15,7 +15,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     uint256 public constant ONE_DAY = 1 days;
 
     bytes32 public constant MERKLE_ROOT =
-        0x7e8cc095ec32f3dcacb3c6338f19ca9e7f7c29254e001d497f3dab9f6a8717e9;
+        0x50e8bd37dc6c99354eecff2b7fd5af65fcac7225b07949d31d1dced469092401;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule {
@@ -97,7 +97,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         _token = IERC20(token_);
     }
 
-     function whitelistClaim(
+    function whitelistClaim(
         bytes32[] calldata _merkleProof,
         uint256 _vestedAmount,
         uint256 _initialAmount,
@@ -204,13 +204,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         uint256 _amount
     ) external onlyOwner returns (bool status) {
         status = _createVestingSchedule(
-            _beneficiary,           // Beneficiary
-            getCurrentTime(),       // Vesting schedule start
-            _cliff,                 // Cliff period
-            _duration,              // Total duration
-            _slicePeriodSeconds,    // Slice period in secodns: 1 day
-            _revocable,             // Vesting schedule can be revocable
-            _amount                 // Total amount to distribute
+            _beneficiary, // Beneficiary
+            getCurrentTime(), // Vesting schedule start
+            _cliff, // Cliff period
+            _duration, // Total duration
+            _slicePeriodSeconds, // Slice period in secodns: 1 day
+            _revocable, // Vesting schedule can be revocable
+            _amount // Total amount to distribute
         );
         require(status, "Scheduled failed!");
     }
@@ -268,7 +268,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         );
 
         require(IDefispotToken(address(_token)).mint(_amount), "mint failed!");
-        
+
         return true;
     }
 
@@ -289,7 +289,8 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         if (vestedAmount > 0) {
             require(release(vestingScheduleId), "release failed!");
         }
-        uint256 unreleased = vestingSchedule.amountTotal - vestingSchedule.released;
+        uint256 unreleased = vestingSchedule.amountTotal -
+            vestingSchedule.released;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - unreleased;
         vestingSchedule.revoked = true;
     }
@@ -311,7 +312,9 @@ contract TokenVesting is Ownable, ReentrancyGuard {
      * @param vestingScheduleId the vesting schedule identifier
      * @param amount the amount to release
      */
-    function release(bytes32 vestingScheduleId)
+    function release(
+        bytes32 vestingScheduleId
+    )
         public
         nonReentrant
         onlyIfVestingScheduleNotRevoked(vestingScheduleId)
@@ -323,13 +326,13 @@ contract TokenVesting is Ownable, ReentrancyGuard {
         bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
         bool isOwner = msg.sender == owner();
         require(isBeneficiary || isOwner, "only beneficiary and owner!");
-       
+
         uint256 amount = _computeReleasableAmount(vestingSchedule);
         require(amount > 0, "zero releasable amount!");
         vestingSchedule.released = vestingSchedule.released + amount;
         address beneficiaryPayable = vestingSchedule.beneficiary;
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount - amount;
-        
+
         _token.safeTransfer(beneficiaryPayable, amount);
 
         return true;
@@ -434,8 +437,9 @@ contract TokenVesting is Ownable, ReentrancyGuard {
             return vestingSchedule.amountTotal - vestingSchedule.released;
         } else {
             uint256 vestedSeconds = currentTime - vestingSchedule.start;
-            uint256 vestedAmount = (vestingSchedule.amountTotal * vestedSeconds) / vestingSchedule.duration;
-            vestedAmount = vestedAmount - vestingSchedule.released; 
+            uint256 vestedAmount = (vestingSchedule.amountTotal *
+                vestedSeconds) / vestingSchedule.duration;
+            vestedAmount = vestedAmount - vestingSchedule.released;
 
             return vestedAmount;
         }
