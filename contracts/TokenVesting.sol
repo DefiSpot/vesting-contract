@@ -15,7 +15,7 @@ contract TokenVesting is Ownable, ReentrancyGuard {
     uint256 public constant ONE_DAY = 1 days;
 
     bytes32 public constant MERKLE_ROOT =
-        0x50e8bd37dc6c99354eecff2b7fd5af65fcac7225b07949d31d1dced469092401;
+        0x8cc9ef9750a0cffd6d386a7b8dee907ef4e2074eb1c64cdee1d3143b0442e41d;
     mapping(address => bool) public whitelistClaimed;
 
     struct VestingSchedule {
